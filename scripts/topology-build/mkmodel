@@ -1,0 +1,192 @@
+#!/usr/bin/perl
+#
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+#
+
+use strict;
+use IO::File;
+use XML::Simple;
+use Graph::Directed;
+
+
+my ($bindir,$prog) = $0 =~ m,(.*)/(.*),;
+
+die "usage: $prog network.graph network.machines\n"
+	if (@ARGV != 2) ;
+
+my ($graphfile,$hostsfile) = @ARGV;
+
+
+print STDERR "Reading $graphfile . . .\n";
+my $topology = &readxmlgraph($graphfile);
+print STDERR "Reading $hostsfile . . .\n";
+my $hostsxml = &XMLin($hostsfile,forcearray => ["host","emul"], keeproot=>1);
+
+my $hosts = $hostsxml->{hardware}->{host};
+my $hostcnt = @$hosts;
+my $fwds = $hostsxml->{hardware}->{emul};
+my $fwdcnt = @$fwds;
+
+my @subnets;
+my @hops;
+
+# Note: vertice list is not sorted ... will this matter?
+my @vertices = $topology->vertices();
+my @edges = $topology->edges02();
+
+print STDERR "Read ", 1+$#vertices," vertices and ", ($#edges-1)/2," edges.\n";
+print STDERR "Mapping graph to  $fwdcnt emulators and $hostcnt hosts\n";
+
+my $fwd=0;
+foreach my $i (0..$hostcnt-1) {
+	$subnets[$i]->{int_emul} = $fwd;
+	++$fwd;
+	$fwd %= $fwdcnt;
+}
+
+my $subnetidx=0;
+my $maxsubnet=0;
+foreach my $vertex (@vertices) {
+	next unless  $vertex->{role} eq 'virtnode';
+	$vertex->{-subnet} = $subnets[$subnetidx];
+	push @{$subnets[$subnetidx]->{virtnode}}, $vertex;
+	++$subnets[$subnetidx]->{int_nodes};
+	$maxsubnet++ if $subnets[$subnetidx]->{int_nodes}>$maxsubnet;
+
+	++$subnetidx;
+	$subnetidx %= $hostcnt;
+	}
+$maxsubnet+=2; # for .0 and .255 special addrs
+
+my $subnetbits = 32-&subnetshift($maxsubnet);
+my $idx;
+foreach my $subnet (@subnets) {
+
+        next unless exists $subnet->{virtnode}; # in case hosts outnumber VNs
+
+	my $ip =   0xa000000 + ($idx << (32-$subnetbits));
+	my $mask = -1 ^ ((1<<(32-$subnetbits))-1);
+	my $net = $ip;
+	$subnet->{vnet}=join(".",unpack("C4",pack("N",$net)))."/$subnetbits";
+	$subnet->{vmask} = join(".",unpack("C4",pack("N",$mask)));
+	$subnet->{vbcst} = join(".",unpack("C4",pack("N",$net|~$mask)));
+	foreach my $vn (sort {$a->{int_vn}<=>$b->{int_vn}} @{$subnet->{virtnode}}) {
+		$vn->{vip} = join(".",unpack("C4",pack("N",++$ip)));
+	}
+	$idx++;
+}
+
+my $idx=0;
+foreach my $host (@$hosts) {
+	$host->{subnet} = $subnets[$idx];
+	$subnets[$idx]->{-host} = $host;
+	++$idx;
+} 
+
+
+$idx=0;
+foreach my $fwd (@$fwds) {
+	$fwd->{int_idx}=$idx++;
+}
+
+my @edgelist;
+$fwd=0;
+$idx=0;
+
+while (@edges) {
+    my $from = shift @edges;
+    my $to = shift @edges;
+    #my $edge = $topology->get_attribute('hash',$from,$to);
+    my $edge = $topology->get_edge_attribute($from, $to, 'hash');
+    $edge->{-fwd} = $from->{-subnet}->{-fwd};
+    $edge->{-fwd} = $to->{-subnet}->{-fwd} unless $edge->{-fwd};
+    $edge->{-fwd} = $fwds->[$fwd++] unless $edge->{-fwd};
+    $edge->{int_emul} = $edge->{-fwd}->{int_idx};
+
+    $fwd %= $fwdcnt;
+    &bind($edge->{-fwd},$from->{-subnet})
+	    if ($from->{role} eq 'virtnode') ;
+    &bind($edge->{-fwd},$to->{-subnet})
+	    if ($to->{role} eq 'virtnode') ;
+    push @hops, $edge;
+}
+
+
+delete $_->{-subnet} foreach (@vertices) ; # xmlout has a bug
+delete $_->{-fwd} foreach @subnets; # xmlout has a bug
+delete $_->{-host} foreach @subnets; # xmlout has a bug
+
+#my $specs =  $topology->get_attribute('specs');
+my $specs =  $topology->get_graph_attribute('specs');
+my $model = {model=> { 
+		specs=> { xmloutbug=> 'workaround', %$specs},
+		hops=> {hop => [ @hops ]},
+	        emulators=> {emul=>$fwds},
+		}
+	     };
+
+# use Data::Dumper;
+# print Dumper($model);
+
+print STDERR "Printing model\n";
+print  &XMLout($model, keeproot=>1,
+	 xmldecl => '<?xml version="1.0" encoding="ISO-8859-1"?>');
+
+#####################
+
+sub bind {
+    my ($fwd,$subnet)=@_;
+    return if exists $subnet->{-fwd};
+
+    $subnet->{-fwd} = $fwd;
+    push @{$fwd->{host}}, $subnet->{-host};
+}
+
+sub subnetshift {
+	my ($size) = @_;
+
+	my $shift=1;
+	++$shift while $size>1<<$shift;
+
+	return $shift;
+}
+
+#####################
+
+sub readxmlgraph() {
+	my ($filename) = @_;
+
+	my $xml = &XMLin($filename,forcearray=> ["vertex","edge"], keeproot=>1);
+
+	my $graph = new Graph::Directed;
+
+
+	my $xmlvertices = $xml->{topology}->{vertices}->{vertex};
+	my %nodebyid;
+	foreach my $node (@$xmlvertices) {
+		$nodebyid{$node->{int_idx}} = $node;
+		$graph->add_vertex($node);
+	}
+	my $xmledges = $xml->{topology}->{edges}->{edge};
+	foreach my $edge (@$xmledges) {
+		my $src;
+		my $dst;
+		# valid graph?
+		if (!(exists $nodebyid{$edge->{int_src}} and 
+		      exists $nodebyid{$edge->{int_dst}})){
+		    printf "mkmodel: input graph appears to have edge";
+		    printf " ($edge->{int_idx}) between non-existent vertices!\n";
+		    exit;
+		}
+		($src) = $nodebyid{$edge->{int_src}};
+		($dst) = $nodebyid{$edge->{int_dst}};
+		#$graph->add_weighted_edge($src,1,$dst);
+		$graph->add_weighted_edge($src,$dst,1);
+		#$graph->set_attribute('hash',$src,$dst,$edge);
+		$graph->set_edge_attribute($src, $dst, 'hash', $edge);
+	    }
+	#$graph->set_attribute('specs', $xml->{topology}->{specs});
+	$graph->set_graph_attribute('specs', $xml->{topology}->{specs});
+	return $graph;
+}

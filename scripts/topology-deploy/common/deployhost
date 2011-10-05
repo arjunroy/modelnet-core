@@ -1,0 +1,165 @@
+#!/usr/bin/perl
+#
+# modelnet   deployhost
+#      deployhost configures the host it runs on according to the
+#      model file
+#
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+#
+
+use English;
+use XML::Simple;
+
+($bindir,$prog) = $0 =~ m,(.*)/(.*),;
+
+if ($#ARGV != 1) {
+	print "usage: $prog <file.model> <file.route>\n";
+	exit 1;
+	}
+
+$bindir = "/usr/local/bin" unless ( -d $bindir and $bindir ne '.');
+
+
+
+my ($modelfile,$routefile) = @ARGV;
+
+die "$prog: $modelfile: $!\n" unless -r $modelfile;
+die "$prog: $routefile: $!\n" unless -r $routefile;
+
+($osname,$hostname) = split ' ',qx/uname -sn/;
+
+my $modelxml = &XMLin($modelfile,forcearray => ["host","emul","subnet","virtnode"], keeproot=>1);
+
+$module = $modelxml->{model}->{module} or $module= "$bindir/../lib/linuxmodelnet.ko";
+
+$modelload = $modelxml->{model}->{modelload} or $modelload= "$bindir/modelload";
+
+$ipfwload = $modelxml->{model}->{ipfwload} or $ipfwload = "$bindir/ipfwload";
+
+my $fwds = $modelxml->{model}->{emulators}->{emul};
+
+foreach $fwd (@$fwds) {
+	&deployfwd($fwds,$modelfile,$routefile)
+		if $hostname =~ m/$fwd->{hostname}/;
+	foreach $host (@{$fwd->{host}}) {
+		&deployhost($fwd,$host) if $hostname =~ m/$host->{hostname}/;
+	}
+}
+
+
+#####################
+
+sub command {
+	my ($cmd) = @_;
+
+	print "$cmd\n";
+	system "sudo $cmd";
+}
+
+sub clearroutes {
+	foreach my $route (grep /^10/,qx/netstat -rn/) {
+		my($dest,$gate,$linuxmask) = split ' ',$route;
+		$mask = "netmask $linuxmask" if ($osname eq "Linux");
+		command "/sbin/route delete -net $dest $mask";
+		}
+}
+
+sub deployfwd {
+	my ($fwds,$modelfile,$routefile) = @_;
+
+	die "$prog: $hostname: emulator must run FreeBSD 4.x, or Linux, not $osname\n"
+		unless ($osname eq 'FreeBSD' or $osname eq 'Linux');
+	die "$prog: cannot find module $module\n" unless -r $module;
+	die "$prog: cannot find modelload $modelload\n" unless -x $modelload;
+	
+	if ($osname eq 'FreeBSD') {
+	    die "$prog: cannot find ipfwload $ipfwload\n" unless -x $ipfwload; 
+
+	    command "/sbin/kldunload modelnet";
+	    command "/sbin/kldunload ipfw";
+	    clearroutes;
+
+	    command "$ipfwload";
+	    command "/sbin/kldload $module";
+	    command "/sbin/sysctl net.inet.ip.forwarding=1";
+	    command "$modelload $modelfile $routefile";
+	    
+	    command "/sbin/ipfw add 100 pipe 1 ip from any to 10.0.0.0/8 in";
+	    command "/sbin/ipfw add 200 pipe 1 udp from any to me 5347";
+	    foreach $fwd (@$fwds) {
+		foreach $host (@{$fwd->{host}}) {
+		    foreach $subnet (@{$host->{subnet}}) {		    
+			command "/sbin/route add $subnet->{vnet} $host->{hostname}";
+		    }
+		}
+	    }
+
+	} else { 
+	    # Linux
+	    command "/sbin/rmmod linuxmodelnet";
+	    clearroutes;
+	    
+	    command "/sbin/insmod $module";
+	    # added because you cannot have redirection in a sudo
+	    command "sh -c \'echo 1 > /proc/sys/net/ipv4/ip_forward\'";
+	    command "$modelload $modelfile $routefile";
+	    foreach $fwd (@$fwds) {
+		foreach $host (@{$fwd->{host}}) {
+		    foreach $subnet (@{$host->{subnet}}) {		    
+			command "/sbin/route add -net $subnet->{vnet} gw $host->{hostname}";
+		    }
+		}
+	    }
+	}
+
+
+	exit 0;
+}
+
+sub deployhost {
+	my ($fwd,$host) = @_;
+
+	&deploylinuxhost if $osname eq "Linux";
+	&deployfbsdhost if $osname eq "FreeBSD";
+}
+
+sub deploylinuxhost {
+	my ($fwd,$host) = @_;
+	$netdev = exists $host->{netdev}? $host->{netdev}:"eth0";
+
+	command "/sbin/ifconfig $netdev:1 down";
+	clearroutes;
+
+
+	my $alias=1;
+	foreach $subnet (@{$host->{subnet}}) {
+	    foreach $vn (@{$subnet->{virtnode}}) {
+	    	command "/sbin/ifconfig $netdev:$alias $vn->{vip} broadcast $subnet->{vbcst} netmask $subnet->{vmask}";
+		++$alias;
+	    }
+	    command "/sbin/route add -net 10.0.0.0/8 gw $fwd->{hostname}";
+	}
+}
+
+sub deployfbsdhost {
+	my ($fwd,$host) = @_;
+	$netdev = exists $host->{netdev}? $host->{netdev}:"eth0";
+
+	foreach my $alias (grep /inet 10/,qx/ifconfig $netdev/) {
+		my(undef,$ip) = split ' ',$alias;
+		command "/sbin/ifconfig $netdev -alias $ip";
+	}
+	clearroutes;
+
+
+	my $mask;
+	foreach $subnet (@{$host->{subnet}}) {
+	    foreach $vn (@{$subnet->{virtnode}}) {
+		$mask = $subnet->{vmask} unless $mask;
+	    	command "/sbin/ifconfig $netdev alias $vn->{vip} broadcast $subnet->{vbcst} netmask $mask";
+		$mask = "255.255.255.255";
+	    }
+	    command "/sbin/route add -net 10.0.0.0/8 $fwd->{hostname}";
+	}
+}

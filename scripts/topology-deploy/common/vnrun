@@ -1,0 +1,74 @@
+#!/usr/bin/perl
+#
+# modelnet  vnrun
+#
+#     run a command on a certain virtual node, or on all VNs.
+#
+# disclaimer:in order to improve performance, this does not actually parse XML 
+#
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+#
+
+use English;
+use XML::Simple;
+use IO::File;
+
+$gexec = "gexec";
+
+($bindir,$prog) = $0 =~ m,(.*)/(.*),;
+
+if ($#ARGV < 2) {
+	print "usage: $prog [-d] < VN# | all > <file.model> <command>\n";
+	exit 1;
+	}
+
+if ($ARGV[0] eq '-d') {
+	shift;
+	$detach='-d';
+	}
+
+$bindir = "/usr/bin" unless ( -d $bindir and $bindir ne '.');
+$vnrunhost = "$bindir/vnrunhost";
+
+my ($vnnum,$modelfile) = @ARGV;
+
+die "$prog: cannot find vnrunhost\n" unless -x $vnrunhost;
+die "$prog: $modelfile: $!\n" unless -r $modelfile;
+
+if ($vnnum eq 'all') {
+	my @hosts;
+	my $fh = new IO::File($modelfile);
+	while (<$fh>) {
+		push @hosts, $1 if /<host.*hostname="(\w+.*\w+)"/;
+		}
+
+	@hostlist = (@hosts);
+
+	$ENV{GEXEC_SVRS}="@hostlist";
+
+	print "@hostlist\n";
+	}
+else {
+	my $curhost;
+	my $found;
+	my $fh = new IO::File($modelfile);
+	while (<$fh>) {
+		$curhost = $1 if /<host.*hostname="(\w+.*\w+)"/;
+		next unless /<virtnode.*int_vn="$vnnum"/;
+		$found=1;
+		last;
+		}
+	die "$prog: vn $vnnum not found in $modelfile\n" unless $found;
+
+	$ENV{GEXEC_SVRS}="$curhost";
+	}
+
+
+if ($detach) {
+	$ret = system $gexec, $detach, $vnrunhost, @ARGV;
+	}
+else {
+	$ret = system $gexec, $vnrunhost, @ARGV;
+	}
+die "$prog: failed to run $gexec\n" if $ret;

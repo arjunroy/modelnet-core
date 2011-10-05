@@ -1,0 +1,23 @@
+To run the example file, perform the following steps:
+
+1. Generate the graph file from the provided inet file
+$ cat sample.inet | inet2xml -p 100 among 25 stubs > sample.graph
+
+2. Generate the route file from the graph
+$ allpairs sample.graph > sample.route
+
+3. Create the model file from the graph and hosts file
+$ mkmodel sample.graph sample.hosts > sample.model
+
+4. Deploy the network
+
+Either deploy on each host manually like so:
+
+$ deployhost sample.model sample.route
+
+OR: Setup gexecd and authd on all hosts, and use deploy:
+
+$ deploy sample.model sample.route
+
+Alternatively, use the existing model and route files in backup/.
+

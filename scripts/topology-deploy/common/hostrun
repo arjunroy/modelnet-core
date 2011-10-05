@@ -1,0 +1,67 @@
+#!/usr/bin/perl
+#
+# modelnet   hostrun
+#
+#     hostrun uses gexec to execute the command line on all hosts in the
+#     file.model
+#
+# disclaimer:in order to improve performance, this does not actually parse XML 
+#
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+#
+
+use IO::File;
+use English;
+
+$gexec = "gexec";
+
+($prefix,$prog) = $0 =~ m,(.*)/(.*),;
+
+if ($#ARGV < 1) {
+	print "usage: $prog [-sd] <file.model> <command line>\n";
+	print "       -s runs command line sequentially on hosts instead of simultaneously\n";
+	print "       -d detaches command to run in background with no I/O\n";
+	exit 1;
+	}
+
+if ($ARGV[0] eq '-s') {
+	shift;
+	$sequentially=1;
+	}
+my ($modelfile,@job) = @ARGV;
+die "$prog: $modelfile: $!\n" unless -r $modelfile;
+
+my @fwds;
+my @hosts;
+my $fh = new IO::File($modelfile);
+while (<$fh>) {
+#    printf ("LINE: $_");
+# "(\w+)" doesn't match mn-4 names 
+#	push @fwds; printf ("emul $1\n"), $1 if /<emul.*hostname="(\w+)"/;
+#	push @hosts; printf ("host $1\n"), $1 if /<host.*hostname="(\w+.*\w+)"/;
+	push @fwds, $1 if /<emul.*hostname="(\w+)"/;
+	push @hosts, $1 if /<host.*hostname="(\w+.*\w+)"/;
+	}
+
+@hostlist = (@fwds,@hosts);
+
+#printf "Size of hosts is " + @hostlist  + "\n\n";
+#exit(0);
+
+if ($sequentially) {
+	foreach $host (@hostlist) {
+		$ENV{GEXEC_SVRS}="$host";
+
+		print "$host\n";
+
+		$ret = system "$gexec @job";
+		die "$prog: failed to run $gexec\n" if $ret;
+		}
+} else {
+	$ENV{GEXEC_SVRS}="@hostlist";
+
+	print "@hostlist\n";
+	$ret = system ("$gexec @job");
+	die "$prog: failed to run $gexec\n" if $ret;
+	}

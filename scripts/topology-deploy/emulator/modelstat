@@ -1,0 +1,68 @@
+#!/usr/bin/perl
+#
+# modelnet  module/modelstat
+#
+#
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+#
+
+use strict;
+use IO::File;
+
+
+#my $hopdesc = sysctl("net.inet.ip.modelnet.hopcount")
+#	or die "modelnet module not installed\n";
+#my $hopcount = unpack("L",$hopdesc);
+open(PROC_HOPCOUNT, "</proc/sys/modelnet/hopcount") 
+    or die "Could not open proc file /proc/sys/modelnet/hopcount\n";
+my $hopcount = <PROC_HOPCOUNT>;
+chomp($hopcount);
+close(PROC_HOPCOUNT);
+
+
+#my $hopdesc = sysctl("net.inet.ip.modelnet.hopstats");
+open (PROC_HOPSTATS, "</proc/sys/modelnet/hopstats") 
+    or die "Could not open /proc/sys/modelnet/hopstats";
+my $hopdesc;
+
+# 3 integer values in a hopstat = 12 bytes per stat
+print "hopcount is $hopcount, doing read of size " . 12 * $hopcount . "\n";
+my $readAmount = sysread(PROC_HOPSTATS, $hopdesc, 12 * $hopcount);
+if ($readAmount != (12*$hopcount)) {
+    die "Could not read hopstats from /proc/sys/modelnet/hopstats, read $readAmount\n";
+}
+print "We read $readAmount from the proc\n";
+my @hopstats = unpack("L" x ($hopcount*3),$hopdesc);
+print "Hop idx  bytes/pkt  pkts   bytes drops\n";
+my $fields=3;
+foreach my $i (0..$hopcount-1) {
+	my ($pkts,$bytes,$qdrops) = @hopstats[($i*$fields)..($i+1)*$fields-1];
+	printf "%6d %6.1f %8d %9d %3d\n",$i,$pkts?$bytes/$pkts:0,
+		$pkts,$bytes,$qdrops;
+	}
+
+exit 0;
+
+########################
+
+
+sub sysctl_syscall { syscall(202, @_) }
+
+sub sysctl {
+	my ($name,$newbuf) = @_;
+
+	my $mib = pack("LL", 0, 3); # Undocumented
+	my $oid = 0 x 56;
+	my $oid_len = pack("L", length $oid);
+	&sysctl_syscall($mib, ((length $mib)/4), $oid, $oid_len,
+		$name, length $name) && die "Sysctl $name mib failed ($!)\n";
+	my $buflen = pack("L",1);
+	&sysctl_syscall($oid, unpack("L",$oid_len)/4, 0, $buflen, 0, 0)
+		&& die "Sysctl $name length probe failed ($!)\n";
+	my $oldbuf = 0 x unpack("L",$buflen);
+	&sysctl_syscall($oid, unpack("L",$oid_len)/4, $oldbuf, $buflen,
+		$newbuf?$newbuf:0, length $newbuf)
+		&& die "Sysctl $name failed ($!)\n";
+	$oldbuf;
+}

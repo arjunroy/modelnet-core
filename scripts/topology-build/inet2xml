@@ -1,0 +1,136 @@
+#!/usr/bin/perl 
+# 
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+#
+
+use XML::Simple;
+
+$default_qcnt=10;
+
+($bindir,$prog) = $0 =~ m,(.*)/(.*),;
+
+$args = join ' ',@ARGV;
+
+die "usage: $prog [-l] [-s seed] [-q qcnt] -p <vncnt> among <stubcnt> stubs \
+    		[<link type> <kbps bw> <ms delay> <drop fraction>]+ | 
+    		[min-<link type> <kbps bw> <ms delay> <drop fraction>
+    		 max-<link type> <kbps bw> <ms delay> <drop fraction>]
+        -l    Set delay based on link lengths derived from inet node location
+	-s seed 
+	      random seed
+	-q qcnt
+	      Queue length for on all links. Default is  $default_qcnt
+	-p <vncnt> among <stubcnt> stubs \
+	      Create <vncnt> virtual nodes spread among <stubcnt> stubs
+	<link type>
+	      Types can be: client-stub stub-stub stub-transit transit-transit
+	<kbps bw>
+	      integer kilobits per second
+	<ms delay>
+	      integer milliseconds of link latency
+	<drop fraction>
+	      real value from fraction of packets dropped \n"
+	unless @ARGV;
+
+$inetlenfactor = 300; # fraction of inet len the delay should be for -l
+
+($vncnt,$stubcnt) = ($1,$2)
+	if $args =~ /-p *(\d+) *among *(\d+) *stub/;
+($qlen) = ($1)
+	if $args =~ /-q *(\d+)/;
+($seed) = ($1)
+	if $args =~ /-s *(\d+)/;
+srand($seed) if $seed;
+
+@linknames = ('client-stub', 'stub-stub', 'stub-transit', 'transit-transit');
+
+$dflt_qlen= $qlen?$qlen:10;
+foreach $link (@linknames) {
+	$default{$link} = {dbl_kbps=>1000, dbl_plr=>0, dbl_plr=>0, int_qlen=>$dflt_qlen, int_delayms=>0 };
+	$default{$link} = {dbl_kbps=>$1, int_delayms=>$2, dbl_plr=>$3, 
+		int_qlen=>$dflt_qlen}
+		if $args =~ /$link *(\d+) *(\d+) *(\d+(\.\d+)?)/;
+	$minspec{$link} = {dbl_kbps=>$1, int_delayms=>$2, dbl_plr=>$3,
+		int_qlen=>$dflt_qlen}
+		if $args =~ /min-$link *(\d+) *(\d+) *(\d+(\.\d+)?)/;
+	$maxspec{$link} = {dbl_kbps=>$1, int_delayms=>$2, dbl_plr=>$3,
+		int_qlen=>$dflt_qlen}
+		if $args =~ /max-$link *(\d+) *(\d+) *(\d+(\.\d+)?)/;
+}
+
+$_=<STDIN>;
+($vertcnt,$edgecnt) = split;
+
+die "More stubs ($stubcnt) requested than vertices ($vertcnt)\n"
+	if $stubcnt > $vertcnt;
+my $idx;
+foreach (1..$vertcnt) {
+	$_=<STDIN>;
+	($id,$x,$y) = split ;
+	push @vertices, {int_idx=>$idx++, dbl_x=>$x, dbl_y=>$y, role=>"transit"};
+	}
+
+my $vn=0;
+my $nodesperstub = ($vncnt/$stubcnt);
+$nodesperstub--  unless ($vncnt%$stubcnt);
+foreach my $stub (1..$stubcnt) {
+    $gate = $vertices[@vertices*rand] while ($gate->{role} ne "transit");
+    $gate->{role} = "gateway";
+    foreach my $vert (0..$nodesperstub) {
+	$idx = @vertices;
+	push @vertices, {int_idx=>$idx, int_vn=>$vn++, role=>"virtnode"};
+	push @edgelist, {int_src=>$idx, int_dst=>$gate->{int_idx},
+		int_len=>$inetlenfactor , specs=>"client-stub",
+		int_idx=>scalar @edgelist};
+	push @edgelist, {int_dst=>$idx, int_src=>$gate->{int_idx},
+		int_len=>$inetlenfactor , specs=>"client-stub",
+		int_idx=>scalar @edgelist};
+	last if $vn == $vncnt;
+	}
+}
+
+
+$idx=@edgelist;
+foreach (0..$edgecnt-1) {
+	$_=<STDIN>;
+	($src,$dst,$len) = split ;
+	my $spec = "transit-transit";
+	$spec = "stub-transit"
+		if ($vertices[$src]->{role} eq 'gateway'
+			or $vertices[$dst]->{role} eq 'gateway');
+
+	push @edgelist, {int_idx=>$idx++, int_src=>$src, int_len=>$len,
+		int_dst=>$dst, specs=>$spec};
+	push @edgelist, {int_idx=>$idx++, int_dst=>$src, int_len=>$len,
+		int_src=>$dst, specs=>$spec};
+
+	}
+
+foreach $edge (@edgelist) {
+	next unless exists $minspec{$edge->{specs}}
+		and exists $maxspec{$edge->{specs}};
+	$min = $minspec{$edge->{specs}};
+	$max = $maxspec{$edge->{specs}};
+	foreach $parm (keys %$min) {
+		$edge->{$parm}  = (($max->{$parm}-$min->{$parm})*rand)+$min->{$parm};
+		$edge->{$parm}  = int $edge->{$parm} if $parm =~ /^int_/;
+		}
+	}
+
+if ($args =~ /-l/) {
+    foreach $edge (@edgelist) {
+    	$edge->{int_delayms} = $edge->{int_len}/ $inetlenfactor ;
+    }
+}
+
+
+my $xmlout = { topology=>
+	{
+	  specs => {xmloutbug=>"workaround", %default},
+	  vertices=> {vertex=> [@vertices] },
+	  edges=> { edge=> [ @edgelist ] } }
+	};
+
+print &XMLout($xmlout,  keeproot=>1,
+	 xmldecl => '<?xml version="1.0" encoding="ISO-8859-1"?>');

@@ -1,0 +1,100 @@
+Linux Modelnet Installation Guide
+---------------------------------
+
+The file OLD_README contains the more detailed modelnet instructions which
+might be somewhat out of date and in need of update. This README contains a
+quick getting started guide to modelnet on linux.
+
+The requirements for tools such as gexec and authd carry over from the BSD 
+release to the Linux release and their installation is the same as was described
+in previous documentation (see previous BSD documentation in OLD_README).
+
+The rest of this guide will describe the steps for building and
+installing the Modelnet kernel module and scripts associated with
+building and deploying topologies.
+
+For information on installing gexec and authd as well as how to distribute authd
+keys, please refer to the BSD howto section 2.5.
+
+Compiling Modelnet (only core)
+------------------------------
+
+Currently the Linux release of Modelnet does not utilize automake or
+any other automated configuration utility.  Because of this, the
+kernel module must be manually compiled and installed.  The rest of
+this readme will assume that your target install path is /usr/local.
+
+First, verify that you have the system header files for your Linux
+version installed in /lib/modules/`uname -r`/build/include/.  Then,
+run the following commands to make the Modelnet kernel module:
+
+	* cd emulator/linux/module
+	* make
+
+The result should be compiled Linux module file called
+linuxmodelnet.ko.  Copy this file to /usr/local/lib/linuxmodelnet.ko,
+or your target install destination.  
+
+NOTE: While it is preferred to have linuxmodelnet.ko as well as the
+Modelnet scripts installed in a directory included in your
+environment's PATH, this is not entirely necessary as long as .model
+file you are deploying correctly specifies the object's location
+
+Compiling libipaddr (only edge)
+-------------------------------
+
+Compiling the libipaddr library, which interposes on certain Linux
+system calls in order to route all packets to core machines, need only
+be done on edge machines.  libipaddr.so is used with the vnrunhost
+script in order to run applications on edge nodes.  Run the following
+steps to compile libipaddr.so :
+
+	 * cd client
+	 * make
+
+Script Installation
+--------------------
+
+Scripts are divided into the following categories:
+
+1. Topology creation
+2. Topology deploy - common
+3. Topology deploy - emulator only
+
+Topology creation :
+
+The following scripts are used in building topology files.  Install
+them using the following commands on any machines which will be used 
+for building topologies
+
+      * cp scripts/topology-build/inet2xml /usr/local/bin
+      * cp scripts/topology-build/mkmodel /usr/local/bin
+      * cd scripts/topology-build
+      * make clean
+      * make
+      * cp ./allpairs /usr/local/bin
+
+Topology deploy - emulator only :
+
+The following commands can be used to install the scripts to
+/usr/local/bin or any other preferred destination.  Installing
+Modelnet scripts into directories included in PATH greatly facilitates
+the running of Modelnet experiments.  (NOTE: these scripts only need
+to be installed on your _core_ machines, edge machines do not require
+them)
+
+      * cp scripts/topology-deploy/emulator/modelload /usr/local/bin
+      * cp scripts/topology-deploy/emulator/modelstat /usr/local/bin
+
+Topology deploy - common :
+
+The following scripts need to be installed on edge machines:
+
+      * cp scripts/topology-deploy/common/deploy /usr/local/bin
+      * cp scripts/topology-deploy/common/deployhost /usr/local/bin
+      * cp scripts/topology-deploy/common/hostrun /usr/local/bin
+      * cp client/libipaddr.so /usr/local/lib
+
+NOTE: installing all scripts on core and edge nodes will have no
+detrimental effect.
+
