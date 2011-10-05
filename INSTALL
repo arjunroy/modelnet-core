@@ -48,7 +48,7 @@ From the root directory of the modelnet source:
 $ cd client
 $ make clean
 $ make
-$ sudo make install
+$ sudo -E make install
 
 libipaddr.so installs to MODELNET_PREFIX/lib.
 
@@ -69,11 +69,16 @@ source directory. If it is not defined, it automatically uses the output of
 linuxmodelnet.ko (the outputted kernel module) installs to MODELNET_PREFIX/lib.
 
 ###############################################################################
-* On the system where the topology will be created, compile allpairs.
+* On the topology creation system, build and install the topology build tools.
 ###############################################################################
 
-Allpairs is a program that generates a routing table based on a graph for the
+allpairs is a program that generates a routing table based on a graph for the
 desired network topology.
+
+inet2xml converts an inet file to an XML graph file describing the emulated
+topology.
+
+mkmodel is used to make a model file from a graph and a hosts file.
 
 First install the prerequisites:
 g++ (GNU C++ Compiler) (version 4.4 used in this run)
@@ -83,9 +88,9 @@ libboost-graph-dev (version 1.4 used in this run)
 Then, from the root directory of the modelnet source:
 $ cd scripts/topology-build
 $ make
-$ sudo make install
+$ sudo -E make install
 
-allpairs installs to MODELNET_PREFIX/bin.
+allpairs, inet2xml and mkmodel installs to MODELNET_PREFIX/bin.
 
 ###############################################################################
 * On all client and emulator systems, build and install libe, authd and gexec.
@@ -154,9 +159,30 @@ the command line.
 3. All that matters is that gexecd is put in our path, which the install
 script did manage to do.
 
+###############################################################################
+* Create RSA public/private key pairs for authd and gexecd and deploy
+###############################################################################
 
+Follow the documentation at http://www.theether.org/authd/ to do this. A quick
+description copied from that site follows below:
 
+# Generation of a cluster-wide RSA public/private key pair:
 
+foo# openssl genrsa -out auth_priv.pem
+foo# chmod 600 auth_priv.pem
+foo# openssl rsa -in auth_priv.pem -pubout -out auth_pub.pem
+
+# Distribution of the cluster-wide RSA public/private pair (on each node, say 
+bar1, bar2, ...):
+
+foo# scp auth_priv.pem bar1:/etc/auth_priv.pem
+foo# scp auth_pub.pem bar1:/etc/auth_pub.pem
+foo# scp auth_priv.pem bar2:/etc/auth_priv.pem
+foo# scp auth_pub.pem bar2/etc/auth_pub.pem
+foo# ......
+
+Once these steps are done, run authd and then gexecd as root on each client and
+emulator node.
 
 
 
