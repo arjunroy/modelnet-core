@@ -198,7 +198,62 @@ $ sudo -E make emulatorcore
 For installing all the scripts, we use "sudo -E make install". There is no
 downside to installing all the scripts on all of the machines.
 
+###############################################################################
+* Install the remaining dependencies and initialize network.
+###############################################################################
 
+Install libgraph-perl and libxml-simple-perl.
 
+For this run, we will deploy the network described in example/sample.graph to
+our collection of three machines.
 
+Create a 'host' file listing the machines in use:
+$ cat sample.hosts
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<hardware>
+<emul hostname="emulator"/>
+<host hostname="clientone"/>
+<host hostname="clienttwo"/>
+</hardware>
+
+Create a 'model' file using the graph file and the host file.
+$ mkmodel sample.graph sample.hosts > sample.model
+
+Create a 'route' file using allpairs and the graph file.
+$ allpairs sample.graph > sample.route
+
+On the emulator, assuming eth0 is the interface that will be processing
+modelnet destined packets, disable RP_FILTER.
+As Root:
+$ echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
+$ echo 0 > /proc/sys/net/ipv4/conf/eth0/rp_filter
+
+Copy the generated sample.model and sample.route files to all clients
+and emulators, taking care to ensure that they are in the same
+location on each filesystem.
+
+Deploy modelnet as follows:
+$ deploy sample.model sample.route
+
+This can be done on any of the systems.
+
+Modelnet should now be up and running.
+Verify this by running 'route' and 'ifconfig' on all systems to make sure the
+values are what you'd expect.
+
+###############################################################################
+* Verify Modelnet Operation
+###############################################################################
+
+After modelnet deploys, one quick test is to set up an iperf server on 
+clientone and an iperf client on clienttwo. Make sure LD_PRELOAD on clienttwo
+points to libipaddr.so, and SRCIP on client two refers to an IP address that is
+hosted on clienttwo.
+
+clientone $: iperf -s
+clienttwo $: LD_PRELOAD=/path/to/modelnet/lib/libipaddr.so SRCIP=10.0.0.5 iperf -c
+
+Using the default sample.model file, the packets should travel from clienttwo
+to the emulator and then to clientone, and then take the same path back, at a
+rate determined by the model file.
 
