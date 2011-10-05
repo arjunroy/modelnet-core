@@ -31,7 +31,7 @@ outside the scope of this example.
 Either the source repository version or a release > 0.99 should do.
 
 ###############################################################################
-* Optionally, set up the MODELNET_PREFIX variables.
+* Optionally, set up the MODELNET_PREFIX variables on all systems.
 ###############################################################################
 
 The Makefiles included in this project default to MODELNET_PREFIX=/opt/modelnet
@@ -85,6 +85,54 @@ $ cd scripts/topology-build
 $ make
 $ sudo make install
 
+allpairs installs to MODELNET_PREFIX/bin.
 
-* 
+###############################################################################
+* On all client and emulator systems, build and install libe, authd and gexec.
+###############################################################################
+
+First download the sources for each project from the following location:
+$ wget -P /path/to/save/in http://www.theether.org/gexec/gexec-0.3.7.tar.gz
+$ wget -P /path/to/save/in http://www.theether.org/libe/libe-0.3.1.tar.gz
+$ wget -P /path/to/save/in http://www.theether.org/authd/authd-0.2.3.tar.gz
+
+Then, extract each archive.
+$ tar -xvzf /path/to/gexec-0.3.7.tar.gz
+$ tar -xvzf /path/to/libe-0.3.1.tar.gz
+$ tar -xvzf /path/to/authd-0.2.3.tar.gz
+
+Compile and install libe, authd and gexec in that order.
+
+For libe:
+$ cd /path/to/libe-0.3.1
+$ ./configure
+$ make
+$ sudo make install
+
+For authd:
+First we need to get the dependencies installed. authd depends on libssl-dev
+and automake1.10, so install those before proceeding.
+
+In addition, we need to patch the Makefile for authd so it builds correctly.
+The patch is available in the modelnet source code at patches/authd_patch.
+So we use the following commands:
+
+$ cd /path/to/authd-0.2.3
+$ patch -p0 < /path/to/modelnet/patches/authd_patch
+$ autoreconf
+$ ./configure
+$ make
+$ sudo make install
+
+
+
+
+
+
+
+
+
+
+
+
 

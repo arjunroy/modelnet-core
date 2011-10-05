@@ -1,0 +1,8 @@
+--- Makefile.am.bak	2011-10-06 13:26:49.233843608 -0700
++++ Makefile.am	2011-10-06 13:27:02.573813426 -0700
+@@ -1,4 +1,4 @@
+-AM_CFLAGS			= -O2 -Wall -D_REENTRANT -g
++AM_CFLAGS			= -O2 -Wall -D_REENTRANT -g -D_GNU_SOURCE
+ INCLUDES			= -I.
+ 
+ sbin_PROGRAMS		= authd
