@@ -153,6 +153,10 @@ Contents
      ModelNet with Fedora Core 2 distributions, and include notes on the
      proper packages for that installation.
 
+     Modelnet has also been verified to run on Ubuntu 10.04 for both the
+     emulator core and the virtual node hosts. Note that at present, the Linux
+     version of Modelnet only supports one emulator in the core.
+
      A LAN with gigabit ethernet links to the emulators gets the best
      utilization.  A gigahertz or faster CPU with a gigabit ethernet NIC on
      a 64/66MHz PCI slot is a good match to get the most traffic through
@@ -161,6 +165,10 @@ Contents
 
 1.3. Downloads and Related Packages
 -----------------------------------
+
+     Note that this section is older documentation related to FreeBSD 4.x. For
+     a more up to date version, please see LINUX_QUICKSTART, which might use
+     newer versions of these packages.
 
         * Modelnet (http://issg.cs.duke.edu/modelnet) - the current release
           page for Modelnet.
@@ -318,6 +326,8 @@ Contents
           	../configure --with-fbsdsys=/freebsd/4.XX/src/sys/
           	gmake
 
+     For linux instructions, please see LINUX_QUICKSTART.
+
 
 2.3. Installing Modelnet from source
 ------------------------------------
@@ -330,6 +340,8 @@ Contents
      the remote execution scripts to operate successfully.
 
           	gmake install
+
+     For linux instructions, please see LINUX_QUICKSTART.
 
 
 2.4. Custom FreeBSD kernel

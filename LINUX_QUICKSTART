@@ -40,6 +40,9 @@ the values for these variables. If you define these variables, define them
 identically on all systems. Or, leave them undefined and the defaults will be 
 used.
 
+If MODELNET_PREFIX is set, make sure MODELNET_PREFIX/bin is added to PATH for
+all systems for all user accounts that will run Modelnet commands.
+
 ###############################################################################
 * On the client systems, compile and install libipaddr.so.
 ###############################################################################
