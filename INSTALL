@@ -184,7 +184,19 @@ foo# ......
 Once these steps are done, run authd and then gexecd as root on each client and
 emulator node.
 
+###############################################################################
+* Install the topology-deploy scripts
+###############################################################################
+For client, starting from modelnet root directory:
+$ cd scripts/topology-deploy
+$ sudo -E make client
 
+For emulator, starting from modelnet root directory:
+$ cd scripts/topology-deploy
+$ sudo -E make emulatorcore
+
+For installing all the scripts, we use "sudo -E make install". There is no
+downside to installing all the scripts on all of the machines.
 
 
 
