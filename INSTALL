@@ -102,16 +102,22 @@ $ tar -xvzf /path/to/libe-0.3.1.tar.gz
 $ tar -xvzf /path/to/authd-0.2.3.tar.gz
 
 Compile and install libe, authd and gexec in that order.
+First we need the dependencies. Install automake1.10 and autoconf before
+proceeding.
 
+---------------------------------------
 For libe:
+---------------------------------------
 $ cd /path/to/libe-0.3.1
+$ autoreconf
 $ ./configure
 $ make
 $ sudo make install
 
+---------------------------------------
 For authd:
-First we need to get the dependencies installed. authd depends on libssl-dev
-and automake1.10, so install those before proceeding.
+---------------------------------------
+authd has a further dependency on libssl-dev so install it before proceeding.
 
 In addition, we need to patch the Makefile for authd so it builds correctly.
 The patch is available in the modelnet source code at patches/authd_patch.
@@ -124,7 +130,29 @@ $ ./configure
 $ make
 $ sudo make install
 
+---------------------------------------
+For gexec:
+---------------------------------------
 
+$ cd /path/to/gexec-0.3.7
+$ autoreconf
+$ ./configure
+$ make
+$ sudo make install
+
+The install segment will have an error at the end, but it doesn't matter.
+The error in question is:
+/usr/bin/install: cannot create regular file `/etc/xinetd.d/gexec': No such file or directory
+make[1]: *** [install-data-local] Error 1
+make[1]: Leaving directory `/home/arjun/scaletools/gexec-0.3.7'
+make: *** [install-am] Error 2
+
+But that's alright, since:
+1. Ubuntu 10.04 doesn't seem to use xinetd.d
+2. We weren't going to run gexecd as a service anyways. We shall invoke it from
+the command line.
+3. All that matters is that gexecd is put in our path, which the install
+script did manage to do.
 
 
 

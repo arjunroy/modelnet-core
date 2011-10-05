@@ -14,7 +14,7 @@
 use IO::File;
 use English;
 
-$gexec = "gexec";
+$gexec = "gexec -n 0";
 
 ($prefix,$prog) = $0 =~ m,(.*)/(.*),;
 
