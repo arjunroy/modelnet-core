@@ -1,32 +1,90 @@
+-------------------------------------------------------------------------------
 Modelnet Linux Sample Install : From Start to Finish
+-------------------------------------------------------------------------------
 
 The following document contains the installation instructions for Modelnet,
 assuming one linux system used as the emulator and two linux systems used
 as the clients.
 
+The systems will henceforth be referred to as 'emulator', 'clientone' and
+'clienttwo'.
+
+###############################################################################
 * Set up OS on clients and emulators
+###############################################################################
+
 In this installation run, we use Ubuntu 10.04 for all systems. Simply install
 and setup a stock Ubuntu installation on all systems.
 
+Be sure to note the hostnames for each system: in this run, we connect each
+host on a LAN using static IPs and modify /etc/hosts to associate the IP for
+each system with its hostname. All the scripts we run rely on being able to
+ping a computer based on its hostname. 
+
+Alternatively, you could set up DHCP and DNS for the same effect, but that is 
+outside the scope of this example.
+
+###############################################################################
 * Acquire a copy of the Modelnet code.
+###############################################################################
 
-* Optionally, set up MODELNET_PREFIX and GEXEC_PREFIX variables.
+Either the source repository version or a release > 0.99 should do.
+
+###############################################################################
+* Optionally, set up the MODELNET_PREFIX variables.
+###############################################################################
+
 The Makefiles included in this project default to MODELNET_PREFIX=/opt/modelnet
-and GEXEC_PREFIX=/opt/scaletools if they are not otherwise defined. Note that
-all systems in use must agree on the values for these variables.
+if they are not otherwise defined. Note that all systems in use must agree on 
+the values for these variables. If you define these variables, define them 
+identically on all systems. Or, leave them undefined and the defaults will be 
+used.
 
+###############################################################################
 * On the client systems, compile and install libipaddr.so.
+###############################################################################
+
 From the root directory of the modelnet source:
 $ cd client
 $ make clean
 $ make
-$ sudo make install 
+$ sudo make install
 
+libipaddr.so installs to MODELNET_PREFIX/lib.
+
+###############################################################################
 * On the emulator system, compile and install the kernel module.
+###############################################################################
+
 From the root directory of the modelnet source:
 $ cd emulator/linux/module
 $ make clean
 $ make
 $ sudo -E make install
 
+Note that the environment variable KERNEL_DIR is used to point to the kernel
+source directory. If it is not defined, it automatically uses the output of
+/lib/modules/$(uname -r)/build/ in Linux.
+
+linuxmodelnet.ko (the outputted kernel module) installs to MODELNET_PREFIX/lib.
+
+###############################################################################
+* On the system where the topology will be created, compile allpairs.
+###############################################################################
+
+Allpairs is a program that generates a routing table based on a graph for the
+desired network topology.
+
+First install the prerequisites:
+g++ (GNU C++ Compiler) (version 4.4 used in this run)
+libxerces-c-dev (version 3.1 used in this run)
+libboost-graph-dev (version 1.4 used in this run)
+
+Then, from the root directory of the modelnet source:
+$ cd scripts/topology-build
+$ make
+$ sudo make install
+
+
+* 
 
