@@ -27,6 +27,6 @@ From the root directory of the modelnet source:
 $ cd emulator/linux/module
 $ make clean
 $ make
-$ sudo make install
+$ sudo -E make install
 
 
