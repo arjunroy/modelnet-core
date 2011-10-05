@@ -1,0 +1,32 @@
+Modelnet Linux Sample Install : From Start to Finish
+
+The following document contains the installation instructions for Modelnet,
+assuming one linux system used as the emulator and two linux systems used
+as the clients.
+
+* Set up OS on clients and emulators
+In this installation run, we use Ubuntu 10.04 for all systems. Simply install
+and setup a stock Ubuntu installation on all systems.
+
+* Acquire a copy of the Modelnet code.
+
+* Optionally, set up MODELNET_PREFIX and GEXEC_PREFIX variables.
+The Makefiles included in this project default to MODELNET_PREFIX=/opt/modelnet
+and GEXEC_PREFIX=/opt/scaletools if they are not otherwise defined. Note that
+all systems in use must agree on the values for these variables.
+
+* On the client systems, compile and install libipaddr.so.
+From the root directory of the modelnet source:
+$ cd client
+$ make clean
+$ make
+$ sudo make install 
+
+* On the emulator system, compile and install the kernel module.
+From the root directory of the modelnet source:
+$ cd emulator/linux/module
+$ make clean
+$ make
+$ sudo make install
+
+
