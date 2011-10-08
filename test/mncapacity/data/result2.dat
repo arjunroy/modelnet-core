@@ -1,0 +1,95 @@
+Ip:
+    49843686 total packets received
+    19338903 forwarded
+    0 incoming packets discarded
+    5550612 incoming packets delivered
+    21170541 requests sent out
+    2 fragments dropped after timeout
+    851393 reassemblies required
+    22234 packets reassembled ok
+    2 packet reassembles failed
+    109 fragments received ok
+Icmp:
+    487 ICMP messages received
+    64 input ICMP message failed.
+    ICMP input histogram:
+        destination unreachable: 22
+        timeout in transit: 51
+        echo requests: 396
+        timestamp request: 6
+        address mask request: 6
+    1693 ICMP messages sent
+    0 ICMP messages failed
+    ICMP output histogram:
+        destination unreachable: 1283
+        time exceeded: 2
+        redirect: 6
+        echo replies: 396
+        timestamp replies: 6
+Tcp:
+    29752 active connections openings
+    18672 passive connection openings
+    7 failed connection attempts
+    131 connection resets received
+    2 connections established
+    3698028 segments received
+    1717527 segments send out
+    439 segments retransmited
+    9 bad segments received.
+    534898 resets sent
+Udp:
+    824770 packets received
+    1269 packets to unknown port received.
+    585650 packet receive errors
+    113192 packets sent
+TcpExt:
+    184 resets received for embryonic SYN_RECV sockets
+    4 packets pruned from receive queue because of socket buffer overrun
+    ArpFilter: 0
+    11280 TCP sockets finished time wait in fast timer
+    76382 delayed acks sent
+    8 delayed acks further delayed because of locked socket
+    Quick ack mode was activated 163 times
+    156003 packets directly queued to recvmsg prequeue.
+    1866883994 packets directly received from backlog
+    64390458 packets directly received from prequeue
+    1268854 packets header predicted
+    1371470 packets header predicted and directly queued to user
+    TCPPureAcks: 113786
+    TCPHPAcks: 140164
+    TCPRenoRecovery: 0
+    TCPSackRecovery: 11
+    TCPSACKReneging: 0
+    TCPFACKReorder: 0
+    TCPSACKReorder: 0
+    TCPRenoReorder: 0
+    TCPTSReorder: 0
+    TCPFullUndo: 0
+    TCPPartialUndo: 0
+    TCPDSACKUndo: 0
+    TCPLossUndo: 85
+    TCPLoss: 7
+    TCPLostRetransmit: 0
+    TCPRenoFailures: 0
+    TCPSackFailures: 41
+    TCPLossFailures: 0
+    TCPFastRetrans: 11
+    TCPForwardRetrans: 0
+    TCPSlowStartRetrans: 1
+    TCPTimeouts: 299
+    TCPRenoRecoveryFail: 0
+    TCPSackRecoveryFail: 1
+    TCPSchedulerFailed: 0
+    TCPRcvCollapsed: 203
+    TCPDSACKOldSent: 141
+    TCPDSACKOfoSent: 0
+    TCPDSACKRecv: 86
+    TCPDSACKOfoRecv: 0
+    TCPAbortOnSyn: 0
+    TCPAbortOnData: 18018
+    TCPAbortOnClose: 49
+    TCPAbortOnMemory: 0
+    TCPAbortOnTimeout: 14
+    TCPAbortOnLinger: 0
+    TCPAbortFailed: 0
+    TCPMemoryPressures: 0

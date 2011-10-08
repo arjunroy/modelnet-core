@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+# Change the bandwidth attribute under spec tag in  bwtest.model file
+
+use English;
+use XML::DOM;
+use IO::File;
+
+my $parser=new XML::DOM::Parser;
+my $doc=$parser->parsefile("bwtest1.model");
+
+my $nodes=$doc->getElementsByTagName("client-client");
+my $node= $nodes->item(0);
+
+$node->setAttribute("dbl_kbps", "$ARGV[0]");
+$doc->printToFile("bwtest1.model");
+
+$doc->dispose;
+
+
+
+

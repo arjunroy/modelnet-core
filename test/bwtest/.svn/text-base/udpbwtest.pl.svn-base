@@ -1,0 +1,66 @@
+#!/usr/bin/perl
+# This script will run on sysnet27 and do a remote call on sysnet28.
+# The script basically test the UDP flow and its bandwidth base on various pairs of actual hop bandwidth and UDP flow rate
+# In particular, flow rate is always 120% of the actual bandwidth such that packet drops will occur.
+# The program starts with the hop bandwidth of 100kbps
+
+#get the current directory
+#$dir=$ENV{'PWD'};
+use Cwd;
+$dir= getcwd;
+
+$hopbw=100;
+$timeout=100;
+
+`rm -f data.txt`;
+
+print "Running the bandwidth test script. Please wait...\n";
+
+while ($hopbw <= 1000000)
+{	
+	$udpbw= $hopbw * 1.2;
+	#$udpbw= $udpbw / 1000;
+	#$tempudp=$udpbw;
+	#$udpbw=$udpbw;
+	#$temp=$hopbw / 1000;
+	#print $temp."\t".$tempudp."\n";
+	system("./bwmodify.pl ".$hopbw);  	#change the hop bandwidth in bwtest.model file
+    `gexec deployhost $dir/bwtest1.model $dir/bwtest1.route`; 	#redeploy modelnet on sysnet27
+	#`/usr/local/bin/vnrun -d 0 bwtest1.model netserver`; 	# run iperf server
+	system("/usr/local/bin/vnrun -d 0 $dir/bwtest1.model iperf -su"); 	# run iperf server
+	#`echo "===========================================" >> data.txt`;
+	#print $udpbw."\n";
+	#`/usr/local/bin/vnrunhost 1 bwtest1.model netperf -H 10.0.0.1 -t UDP_STREAM -b $udpbw -- -m 1470 >> data.txt`;	# run iperf client
+	system ("gexec /usr/local/bin/vnrunhost 1 $dir/bwtest1.model iperf -c 10.0.0.1 -u -b $udpbw"."k >> $dir/data.txt");	# run iperf client
+	#`echo "===========================================" >> data.txt`;
+	if ($hopbw >= 100000) {
+		$timeout=100000;
+	}elsif ($hopbw >= 10000) {
+		$timeout=10000;
+	}elsif ($hopbw >= 1000) {
+		$timeout=1000;
+	}
+	$hopbw=$hopbw+$timeout;
+	`pkill iperf`;
+}
+
+open (DATA, 'data.txt') or die("error open the file\n");
+open (BW_RES, '>bwres.dat') or die ("error open the file\n");
+
+foreach $line (<DATA>) {
+	my @tokens= split(' ', $line);
+	if (@tokens[3] eq 'Server') {
+		$nextisdata=1;
+	} elsif ($nextisdata) {
+# This line contains the actual throughput we want
+		$throughput= @tokens[7];
+		if ($throughput eq 'MBytes' || $throughput eq 'KBytes') {
+			$throughput= @tokens[8];
+		}
+		print BW_RES $throughput."\n";
+		$nextisdata=0;
+	}
+}
+
+close(DATA);
+close(BW_RES);

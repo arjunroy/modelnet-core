@@ -1,0 +1,4 @@
+====================================
+The test result 0 is far beyond the standard result 49179.5, while sending 8 TCP flows along the path with 4 pipes.
+====================================
+The test result 0.1 is far beyond the standard result 73662.1, while sending 12 TCP flows along the path with 1 pipes.
