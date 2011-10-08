@@ -1,0 +1,228 @@
+<!--
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+-->
+
+<chapt id="install">
+  <heading>Installing Modelnet</heading>
+
+<sect>
+  <heading>Binary packages</heading>
+
+  <p>
+  Modelnet binary packages are available for Debian and FreeBSD systems.
+  For Debian woody (stable), add these lines to /etc/apt/sources.list:
+  <example>
+deb http://issg.cs.duke.edu/modelnet/debian woody main
+deb-src http://issg.cs.duke.edu/modelnet/debian woody main
+  </example>
+  For Debian sarge (testing), add these lines to /etc/apt/sources.list:
+  <example>
+deb http://issg.cs.duke.edu/modelnet/debian sarge main
+deb-src http://issg.cs.duke.edu/modelnet/debian sarge main
+  </example>
+  and install with <tt>apt-get</tt>:
+  <example>
+    apt-get install modelnet
+  </example>
+  This will pull in on the related libraries and perl modules from the
+  regular Debian distribution sites.
+  </p>
+
+  <p>
+  For FreeBSD, a kernel modification is strongly recommended (see <ref id="kernelbuild">).  Also the
+  prerequistie packages must be downloaded first (see <ref
+  id="fbsdprereq">). 
+  To download the Modelnet package set the <tt>PACKAGESITE</tt> environment
+  variable to this URL
+    (trailing / is significant)
+    <example>
+    ftp://ftp.cs.duke.edu/pub/modelnet/FreeBSD/
+    </example>
+    To download,
+    <example>
+pkg_add -r authd gexec modelnet
+    </example>
+  </p>
+
+<sect>
+  <heading>Building Modelnet from source</heading>
+  <p>
+    Unpack the distribution with tar -
+  </p>
+  <p>
+	<example>
+	tar xfz modelnet-0.0.tar.gz 
+	</example>
+   </p>
+
+   <p>
+     On Linux and FreeBSD, configure and build in your OS-specific object directories -
+     <example>
+	cd modelnet-0.0
+	</example>
+	For Linux:
+	<example>
+	mkdir linux
+	cd linux
+	../configure
+	gmake
+	</example>
+
+
+	  On FreeBSD, the <tt>modelnet.ko</tt> module is already built and
+	  included in the distribution file.  However if you do want to build the
+	  kernel module from source then you need to tell configure where your
+	  kernel sources are.  If you want to use the included .ko, just
+	  run configure with no options.
+
+	<example>
+	mkdir freebsd
+	cd freebsd
+	../configure --with-fbsdsys=/freebsd/4.XX/src/sys/
+	gmake
+	</example>
+   </p>
+
+  <p>
+    For linux instructions, please see LINUX_QUICKSTART.
+  </p>
+
+
+<sect>
+  <heading>Installing Modelnet from source</heading>
+  <p>
+    Since modelnet has components that need to execute on several
+    different OSs, its easiest to install to a local disk.  The default
+    prefix set by configure is /usr/local, so this would happen by default.
+    An alternative is to configure with a prefix in nfs space.  Either
+    way, the prefixes must be consistent across all the hosts for the
+    remote execution scripts to operate successfully.
+	<example>
+	gmake install 
+	</example>
+  </p>
+
+  <p>
+    For linux instructions, please see LINUX_QUICKSTART.
+  </p>
+
+<sect id="kernelbuild">
+  <heading>Custom FreeBSD kernel</heading>
+
+  <p>
+    For the best fidelity in the emulated network links,
+    the FreeBSD kernel on the emulators needs the clock rate
+    set to 10000 Hertz.  In FreeBSD, the HZ parameter is a config 
+    time parameter so you have to build a kernel to change it
+    from the default of 100Hz.
+  </p>
+
+  <p>
+    See the 
+    <url id="http://www.FreeBSD.org/doc/en_US.ISO8859-1/books/handbook/kernelconfig.html"
+    name="FreeBSD Handbook"> chapter on configuring kernels for full
+    details of configuring, building and installing a FreeBSD kernel.
+  </p>
+
+  <p>
+  To set HZ, add a line to the conf file in <tt>sys/i386/conf</tt>
+  that says
+  <example>options HZ=10000</example>
+  </p>
+
+
+  <p>
+  Briefly, to build a kernel run <tt>config </tt><em>conf_file</em>in the conf dir,
+  then <tt>make</tt> in the sys/compile dir for that configure,
+  and finally copy <tt>kernel</tt> to <tt>/</tt> and reboot.
+  </p>
+
+
+  <sect id="build_gexec">
+  <heading>Build and Install gexec</heading>
+
+  <p>
+  Unpack gexec and patch it.  The Modelnet patch allows the gexec system
+  to on FreeBSD hosts.
+  <example>
+  tar xfz libe-0.2.2.tar.gz 
+  tar xfz authd-0.2.1.tar.gz 
+  tar xfz gexec-0.3.5.tar.gz 
+  patch -p0 < modelnet.patch 
+  </example>
+
+
+  <p>
+  libe needs to be built both on a linux host and freebsd host
+  and installed only on the build hosts.
+  <example>
+  cd libe-0.2.2
+  mkdir linux
+  cd linux
+  ../configure
+  make
+  make install
+  </example>
+
+
+  <p>
+  authd needs to be built and configure both on a linux host and a
+  freebsd host.  It needs to be configured and run on all hosts in the
+  emulation cluster.
+
+  <example>
+  cd authd-0.2.1
+  mkdir linux
+  cd linux
+  ../configure
+  make
+  make install
+  </example>
+
+  <p>
+  Create and distribute a cluster key pair as describe on the
+    <url id="http://www.theether.org/authd/" name="authd page">.
+    Then authd can be started on all nodes.  It is meant to be run at
+    boottime and includes a redhat style
+    startup script that goes in /etc/init.d.
+
+  <p>
+  gexecd needs to be built both on a linux host and a
+  freebsd host.  It needs to be run on all hosts in the emulation cluster.
+  gexecd can be started from inetd or run stand-alone at startup.
+
+  <example>
+  cd gexec-0.3.5
+  mkdir linux
+  cd linux
+  ../configure
+  make
+  make install
+  </example>
+
+  <p>
+  The <tt>deploy</tt> command (<ref id="autodeploy">) relies on all
+  hosts in the cluster running gexecd and authd.
+  </p>
+
+
+</chapt>
+
+<!-- Keep this comment at the end of the file
+Local variables:
+mode: sgml
+sgml-omittag:nil
+sgml-shorttag:t
+sgml-namecase-general:t
+sgml-general-insert-case:lower
+sgml-minimize-attributes:nil
+sgml-always-quote-attributes:t
+sgml-indent-step:2
+sgml-indent-data:t
+sgml-parent-document:("../debiandoc-sgml.en.sgml" "book" "chapt")
+sgml-exposed-tags:nil
+sgml-local-catalogs:nil
+sgml-local-ecat-files:nil
+End:
+-->

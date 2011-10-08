@@ -1,0 +1,43 @@
+<!--
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+-->
+
+<chapt id="validate">
+  <heading>Validating and Troubleshooting Modelnet</heading>
+
+  <p>
+    The configuration for Modelnet itself, and the experimental distributed
+    applications that use it, are complex systems that must
+    be validated to confirm it is all working as expected.
+  </p>
+  <p>
+    <url id="http://www.netperf.org/" name="netperf">
+  is the handiest tool to validate link performance.
+  Use it with libipaddr (<ref id="ipaddr">)to confirm link bandwidth
+  of the virtual topology with both TCP and UDP packets.
+  </p>
+  <p>
+  Check mbuf limits, <tt>netstat -m</tt>, on forwarders.
+  Check <tt>systat -ip</tt>, on forwarders for packet throughput.
+  </p>
+
+</chapt>
+
+<!-- Keep this comment at the end of the file
+Local variables:
+mode: sgml
+sgml-omittag:nil
+sgml-shorttag:t
+sgml-namecase-general:t
+sgml-general-insert-case:lower
+sgml-minimize-attributes:nil
+sgml-always-quote-attributes:t
+sgml-indent-step:2
+sgml-indent-data:t
+sgml-parent-document:("../debiandoc-sgml.en.sgml" "book" "chapt")
+sgml-exposed-tags:nil
+sgml-local-catalogs:nil
+sgml-local-ecat-files:nil
+End:
+-->

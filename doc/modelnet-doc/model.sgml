@@ -1,0 +1,224 @@
+<!--
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+-->
+
+<chapt id="model">
+  <heading>Generating a Model Network</heading>
+  <p>
+  To run a modelnet network, you must create several XML files:
+  <list>
+  <item> graph - lists the nodes and links of the virtual network 
+  <item> route - contains route data for paths through the virtual network
+  <item> machines - lists the machines that can be emulators or host
+  virtual nodes.
+  <item> model - matches nodes and links to host machines and emulator machines
+  </list>
+  Modelnet operation requires the route and model file.  The graph and
+  machines files are used to create the route and model files.
+  Perl tools are included to create these files, and these tools can be
+  modified to suite particular objectives.
+
+<sect>
+  <heading>Creating the graph and route files</heading>
+  <p>
+    The first step to using Modelnet is to create a target network topology
+    to emulate. 
+    The topology can be created by generation tools,
+    such as
+    <url id="http://topology.eecs.umich.edu/inet/" name="Inet">,
+    <url id="http://cs-www.bu.edu/faculty/matta/Research/BRITE"
+    name="BRITE">, or
+    <url id="http://www.cc.gatech.edu/projects/gtitm" name="GT-ITM">,
+    or from actual network measurements, such as the
+    <url id="http://nms.lcs.mit.edu/ron/data/" name="RON data"> from MIT.
+    The current version of Modelnet directly supports the Inet tool.
+    Many situations call for custom topologies.  In that case, the perl
+    tools can be modified to generate a graph file according to whatever
+    virtual network topology is required.
+  </p>
+
+<sect1>
+  <heading>Using inet2xml to generate graph file</heading>
+  <p>
+    Modelnet includes a perl tool to convert Inet output to a graph
+    file, and set the link parameters for all the edges in the virtual
+    network topology.  This example creates a network of 4000 nodes plus
+    100 clients attached among 25 stubs spread throughout the toplogy. 
+    The links will be given
+    default characteristics.
+    <example>
+	inet -n 4000 | inet2xml -p 100 among 25 stubs > example.graph
+    </example>
+
+  <p>
+    <tt>inet2xml</tt> can assign values for bandwidth, latency, and drop rate,
+    for four type of links (GT-ITM style link names):
+	'client-stub', 'stub-stub', 'stub-transit', 'transit-transit'.
+    Link paramter definitions:
+    <list>
+    <item>
+    bandwidth - kilobits per second
+    <item>
+    latency - milliseconds of delay per packet.  Can be infered from
+    length of link in those topologies that specify node coordinates.
+    <item>
+    drop rate - fraction of packets that are dropped.  Does not include
+	    those dropped due to queue overflows.
+    </list>
+    Node type definitions:
+    <list>
+      <item>
+      transit node - node in the virtual network topology corresponding
+	      to a router in the wide area internet.
+      <item>
+      stub node - a gateway for client nodes to the access the network
+      <item>
+      client node - edge node in the virtual network corresponding to
+	      an computer attached to the wide area internet  
+    <item>
+      virtual node - sysnonymous with client node.  Each VN is assigned
+	      an IP address in the modeled network.  Modelnet emulates
+	      the end-to-end traffic between VNs.
+    </list>
+      
+    Link type definitions:
+    <list>
+      <item>
+      client-stub - connects a virtual node to an interior node at the
+	      edge of the virtual network.  Corresponds to a link from a
+	      computer to a gateway router.
+    <item>
+      stub-stub - connects two nodes at the edge of the virtual network
+    <item>
+      stub-transit - connects a stub node to transit node.  Correspond
+	      to a link from a site (an AS) to a backbone network.
+    <item>
+      transit-transit - corresponds to links within or between backbone
+	      networks.
+    </list>
+  </p>
+
+  <p>
+    With <tt>inet2xml</tt>, you can specify all the link parameters for all the
+    links types, or give a min-max range where inet2xml randomly picks a value.
+    <example>
+usage: inet2xml [-l] [-q qcnt] -p &lt;vncnt&gt; among &lt;stubcnt&gt; stubs 
+		[&lt;link type&gt; &lt;kbps bw&gt; &lt;ms delay&gt; &lt;drop fraction&gt;]+ | 
+		[min-&lt;link type&gt; &lt;kbps bw&gt; &lt;ms delay&gt; &lt;drop fraction&gt;
+		 max-&lt;link type&gt; &lt;kbps bw&gt; &lt;ms delay&gt; &lt;drop fraction&gt;]
+	-l    Set delay based on link lengths derived from inet node location
+	-q qcnt
+	      Queue length for on all links. Default is  10
+	-p &lt;vncnt&gt; among &lt;stubcnt&gt; stubs 
+	      Create &lt;vncnt&gt; virtual nodes spread among &lt;stubcnt&gt; stubs
+	&lt;link type&gt;
+	      Types can be: client-stub stub-stub stub-transit transit-transit
+	&lt;kbps bw&gt;
+	      integer kilobits per second
+	&lt;ms delay&gt;
+	      integer milliseconds of link latency
+	&lt;drop fraction&gt;
+	      real value from fraction of packets dropped 
+    </example>
+  </p>
+    
+
+<sect1>
+  <heading>XML graph file format</heading>
+  <p>
+    The graph file has 3 subsections: vertices, edges and specs.
+    For this example, take a simple graph that has one link connecting
+    two nodes,  then attach one client node to one node and two clients
+    to the other node.  This graph then has two stub nodes, three
+    clients nodes, and 8 uni-directional edges connecting them. 
+    The resulting XML graph file is:
+    <example>
+
+&lt;?xml version="1.0" encoding="ISO-8859-1"?&gt;
+&lt;topology&gt;
+  &lt;vertices&gt;
+    &lt;vertex int_idx="0" role="gateway" /&gt;
+    &lt;vertex int_idx="1" role="gateway" /&gt;
+    &lt;vertex int_idx="2" role="virtnode" int_vn="0" /&gt;
+    &lt;vertex int_idx="3" role="virtnode" int_vn="1" /&gt;
+    &lt;vertex int_idx="4" role="virtnode" int_vn="2" /&gt;
+  &lt;/vertices&gt;
+  &lt;edges&gt;
+    &lt;edge int_dst="1" int_src="2" int_idx="0" specs="client-stub" int_delayms="1" /&gt;
+    &lt;edge int_dst="2" int_src="1" int_idx="1" specs="client-stub" dbl_kbps="768" /&gt;
+    &lt;edge int_dst="1" int_src="3" int_idx="2" specs="client-stub" /&gt;
+    &lt;edge int_dst="3" int_src="1" int_idx="3" specs="client-stub" /&gt;
+    &lt;edge int_dst="0" int_src="4" int_idx="4" specs="client-stub" /&gt;
+    &lt;edge int_dst="4" int_src="0" int_idx="5" specs="client-stub" /&gt;
+    &lt;edge int_dst="1" dbl_len="1" int_src="0" int_idx="0" specs="stub-stub" /&gt;
+    &lt;edge int_dst="0" dbl_len="1" int_src="1" int_idx="1" specs="stub-stub" /&gt;
+  &lt;/edges&gt;
+  &lt;specs &gt;
+    &lt;client-stub dbl_plr="0" dbl_kbps="64" int_delayms="100" int_qlen="10" /&gt;
+    &lt;stub-stub dbl_plr="0" dbl_kbps="1000" int_delayms="20" int_qlen="10" /&gt;
+  &lt;/specs&gt;
+&lt;/topology&gt;
+
+    </example>
+
+    <p>
+    The  <tt>&lt;specs&gt; </tt> section of each <tt> &lt;edge&gt; </tt> 
+    can be overridden on a per-edge basis.  Any link parameter 
+    expressly stated as an  <tt> &lt;edge&gt; </tt> attribute
+    overrides the value in the associated  <tt>&lt;specs&gt; </tt>.
+    For example, edge 0 overrides the delay to be 1ms and edge 1
+    overrides the bandwidth to be 768 Kbit/s.
+
+<sect1>
+  <heading>Creating the route file from the graph file</heading>
+  <p>
+    The route file store the shortest paths across the virtual network
+    for all pairs of virtual nodes.
+    <example>
+allpairs example.graph > example.route
+    </example>
+
+<sect>
+  <heading>Creating the machines and model files</heading>
+  <p> The machines file is written by hand to list the machines available
+  to be emulators or host virtual nodes.  This example is for cluster of
+  3 machines name larry, curly and moe and designates them as an
+  emulator and two hosts.
+    <example>
+	&lt;?xml version="1.0" encoding="ISO-8859-1"?&gt;
+	&lt;hardware&gt;
+		&lt;emul hostname="larry"/&gt;
+		&lt;host hostname="curly"/&gt;
+		&lt;host hostname="moe"/&gt;
+	&lt;/hardware&gt;
+
+    </example>
+
+  <p> The model file is create by the mkmodel perl script.  mkmodel
+  assigns the virtual nodes to hosts, and assigns links to emulators.
+    <example>
+mkmodel example.graph example.machines > example.model
+    </example>
+
+
+
+</chapt>
+
+<!-- Keep this comment at the end of the file
+Local variables:
+mode: sgml
+sgml-omittag:nil
+sgml-shorttag:t
+sgml-namecase-general:t
+sgml-general-insert-case:lower
+sgml-minimize-attributes:nil
+sgml-always-quote-attributes:t
+sgml-indent-step:2
+sgml-indent-data:t
+sgml-parent-document:("../debiandoc-sgml.en.sgml" "book" "chapt")
+sgml-exposed-tags:nil
+sgml-local-catalogs:nil
+sgml-local-ecat-files:nil
+End:
+-->

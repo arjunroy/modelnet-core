@@ -1,0 +1,256 @@
+<!--
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+-->
+
+<chapt id="intro">
+
+  <heading>Modelnet Overview and Requirements</heading>
+  
+  <p>
+    <strong>Modelnet software and documentation are beta.</strong>  
+  </p>
+
+  <p>
+     Modelnet <em>emulates</em> wide-area network conditions for
+     testing distributed applications, such as peer to peer systems
+    or content distribution networks, within a local area network.
+  </p>
+
+  <p>
+    This document explains how to:
+    <list>
+    <item> Build and install Modelnet - <ref id="install">
+    <item> Create a <em>target</em> network topology to emulate
+	    - <ref id="model">
+    <item> Deploy the topology on the host cluster - <ref id="deploy">
+    <item> Run an application across Modelnet  - <ref id="execute">
+    </list>
+  </p>
+
+  <sect>
+  <heading>Overview</heading>
+
+  <p>
+    Modelnet is designed to run on a machine room cluster to evaluate
+    wide area distributed systems.    One or more of the
+    cluster machines is set aside for traffic emulation, while the
+    remainder can be used to operate as nodes in the application.
+    When these nodes communicate with each other, those IP packets are
+    sent through the emulators to create the illusion that application
+    packets are crossing the wide area Internet.
+  </p>
+
+  <p>
+    To use Modelnet, a virtual network topology must first be created. 
+    This virtual network is what the application traffic will experience.
+    The topology contains all the links and nodes of the virtual network
+    and spedifies the link characteristics including bandwidth, queueing,
+    propagation delay, and drop rate.   Modelnet includes tools to
+    create these target topologies.
+  </p>
+
+  <p>
+    Modelnet emulates a target topology by forwarding all application packets
+    to central network emulation machines.   Using the source and
+    destination IP addresses, the emulators determine a path through
+    the virtual topology and handle the packets according to that path.
+    Each hop on this path has certain bandwidth, queueing, propagation delay,
+    and drop characteristics.  This hop-by-hop emulation subjects the
+    IP traffic to realistic wide area effects including congestion.
+    The packet emulation work all occurs in real time with
+    millisecond accuracy.
+  </p>
+
+  <p>
+    Application hosts are configured with IP aliases on a private subnet
+    (typically the 10.0.0.0/8 network) dedicated to Modelnet emulation.
+    These end hosts send packets over the emulation subnet to the central
+    emulation machines.  Applications make their IP traffic go through
+    Modelnet simply by using the IP addresses from the emulation subnet's
+    address space.
+  </p>
+
+  <p>
+    For many distributed systems and virtual networks, a typical cluster
+    machine has far more CPU power and network bandwidth than a single
+    instance of the application requires.  Modelnet takes advantage
+    of this by creating, possibly, hundreds of virtual nodes on each
+    application host.  The application machines have an IP alias (from the
+    emulation subnet) for each virtual node it hosts.  Modelnet provides
+    a dynamic library to force all application packets to go out to an
+    emulator, even if they are addressed to another virtual node on
+    that same host.  Modelnet includes tools to assist executing
+    applications on large numbers of virtual nodes.
+  </p>
+
+
+  <sect>
+  <heading>Cluster requirements</heading>
+
+  <p>
+    A Modelnet cluster can be as small as two machines; one emulator
+    running FreeBSD or Linux, and one machine hosting the virtual nodes. 
+    We have successfully hosted virtual nodes on Linux, Xen-Linux, Solaris and
+    FreeBSD.   The crucial feature required to host a virtual node is IP
+    aliasing.  With IP aliases, entries can be added to the route table
+    so the host properly handles Modelnet IP packets.
+  </p>
+
+  <p>
+    In practice, at Duke we use Linux Debian machines to host virtual
+    nodes, and so this distribution has the most support for that system in
+    terms of scripts and automation.  However we have also used ModelNet
+    with Fedora Core 2 distributions, and include notes on the proper
+    packages for that installation.
+  </p>
+
+  <p>
+    Modelnet has also been verified to run on Ubuntu 10.04 for both the
+    emulator core and the virtual node hosts. Note that at present, the Linux
+    version of Modelnet only supports one emulator in the core.
+  </p>
+  
+  <p>
+    A LAN with gigabit ethernet links to the emulators gets the best
+    utilization.   A gigahertz or faster CPU with a gigabit ethernet NIC
+    on a 64/66MHz PCI slot is a good match to get the most traffic
+    through each emulator.
+  </p>
+
+
+  <sect>
+  <heading>Downloads and Related Packages</heading>
+
+  <p>
+    Note that this section is older documentation related to FreeBSD 4.x. For
+    a more up to date version, please see LINUX_QUICKSTART, which might use
+    newer versions of these packages.
+  </p>
+
+  <p>
+    <list>
+    <item>
+    <url id="http://issg.cs.duke.edu/modelnet" name="Modelnet">  -
+    the current release page for Modelnet.
+    <item>
+    <url id="http://www.FreeBSD.org" name="FreeBSD"> - the emulator
+    nodes must run 4.5-RELEASE or newer 4.x kernel.
+    Also, for fine grain timing accuracy, a custom FreeBSD kernel is
+    required to change the clock hertz to 10KHz.
+    Here are the 
+    <url id="ftp://ftp.FreeBSD.org/pub/FreeBSD/ISO-IMAGES-i386/4.8" name="4.8 ISO images">.
+    <item>
+    <url id="http://www.boost.org/libs/graph/doc" name="Boost Graph Library">
+    <item>
+    <url id="http://xml.apache.org/xerces-c/" name="Xerces XML Parser"> for C++.
+    <item>
+    Perl modules
+    <list>
+    <item>
+    <url id="http://search.cpan.org/dist/Graph/" name="Graph 0.20105">
+    <item>
+    <url id="http://search.cpan.org/author/JMM/Heap-0.50/" name="Heap"> 
+    <item>
+    <url id="http://search.cpan.org/author/GRANTM/XML-Simple-2.07/lib/XML/Simple.pm" name="XML::Simple"> 
+    </list>
+    </list>
+  </p>
+
+<p>
+    ModelNet requires version 0.2xxxx of the Perl Graph
+    library.  See the CPAN site link in the previous section for
+    downloading the right Graph package.   The system should be able to build the user-level tools
+    against version 1_32 of the boost library on FreeBSD 4.10, Debian, and Redhat 9.0.  
+</p>
+
+
+  <sect1 id="fbsdprereq">
+  <heading>FreeBSD support</heading>
+
+  <p>
+    For FreeBSD hosts, the
+    <url id="ftp://ftp5.freebsd.org/pub/FreeBSD/ports/packages/All"
+    name="package ftp page"> has the latest perl modules and gexec dependencies.
+    Set the <tt>PACKAGESITE</tt> environment variable to this URL
+    (trailing / is significant)
+    <example>
+    ftp://ftp.freebsd.org/pub/FreeBSD/ports/packages/Latest/
+    </example>
+    To download,
+    <example>
+    pkg_add -r p5-XML-Simple linuxthreads libgnugetopt boost xerces-c2
+    </example>
+    You will need to install the p5-Graph (version 0.20105) package
+    off of the CPAN web site. 
+</p>
+
+  <sect1>
+  <heading>Debian support</heading>
+  <p>
+    For Debian hosts, the current testing release(sarge) has the boost
+    and XML libraries.  apt-get these packages:
+    <tt>
+	libxerces23-dev  libboost-graph-dev  libxml-simple-perl  libssl-dev
+    </tt>
+    For the woody(stable) version of Debian, libxerces21-dev is
+    available via apt-get in the Modelnet debian download tree.
+  </p>
+
+  <sect1>
+  <heading>Fedora Core 2 support</heading>
+  <p>
+    For Fedora hosts, you will need to install the following package versions:
+    <tt>
+	xerces-c-devel-2.5.0-1.n0i.1 openssl-0.9.7a-35 boost-devel-1.31.0-7 
+        perl-XML-Simple-2.12-1.1 perl-Graph-0.20105 	
+    </tt>
+  </p>
+<p>
+    Openssl, boost, perl-XML-Simple, can be found using yum.  However
+    Xerces and Graph can be installed separately from these sites: 
+    <list>
+    <item>http://ftp.iasi.rdsnet.ro/mirrors/reb00t.com/fedora-2/RPMS
+    <item>http://rpmfind.net/linux/RPM/dag/fedora/1/i386/perl-Graph-0.20105-1.1.fc1.rf.noarch.html
+    </list>
+</p>
+
+  <sect1>
+  <heading>gexec</heading>
+
+  <p>
+    For large scale remote root execution, Modelnet is designed to use gexec
+    and sudo.  See <ref id="build_gexec"> and  <ref
+    id="remote_execution">.
+    <list>
+    <item>
+    <url id="http://www.theether.org/gexec" name="gexec"> | 
+    <url id="http://www.theether.org/authd" name="authd"> | 
+    <url id="http://www.theether.org/libe" name="libe">
+    <item>
+    <url id="http://issg.cs.duke.edu/modelnet/gexec-0.3.5-1"
+	    name="Modelnet gexec patch">
+    <item>
+    <url id="http://www.openssl.org/" name="OpenSSL">
+    </list>
+  </p>
+
+</chapt>
+
+<!-- Keep this comment at the end of the file
+Local variables:
+mode: sgml
+sgml-omittag:nil
+sgml-shorttag:t
+sgml-namecase-general:t
+sgml-general-insert-case:lower
+sgml-minimize-attributes:nil
+sgml-always-quote-attributes:t
+sgml-indent-step:2
+sgml-indent-data:t
+sgml-parent-document:("../debiandoc-sgml.en.sgml" "book" "chapt")
+sgml-exposed-tags:nil
+sgml-local-catalogs:nil
+sgml-local-ecat-files:nil
+End:
+-->

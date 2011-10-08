@@ -1,7 +1,8 @@
 Modelnet README
 
-MODELNET_DOC is a thorough description of what Modelnet is, and how to install
-it on the older FreeBSD 4.x operating system.
+modelnet.txt, modelnet.pdf and modelnet.html are all different formats of
+the same document: a thorough description of what Modelnet is, and how to 
+install it on the older FreeBSD 4.x operating system.
 
 LINUX_QUICKSTART is a detailed description of how to get Modelnet running on
 Ubuntu 10.04.
@@ -9,7 +10,6 @@ Ubuntu 10.04.
 FREEBSD_QUICKSTART is a detailed description of how to get Modelnet running on
 a more current version of FreeBSD.
 
-Recommended reading order is MODELNET_DOC first to get an idea of what Modelnet
-is all about, followed by LINUX_QUICKSTART or BSD_QUICKSTART to actually get it
-running on a modern platform.
-
+Recommended reading order is modelnet.txt (or .pdf or .html) first to get an 
+idea of what Modelnet is all about, followed by LINUX_QUICKSTART or 
+FREEBSD_QUICKSTART to actually get it running on a modern platform.

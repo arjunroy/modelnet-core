@@ -1,0 +1,91 @@
+<!--
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+-->
+
+<chapt id="deploy">
+  <heading>Deploying a Model Network</heading>
+  <p>
+    Once the model and route files are created, the emulation cluster can
+    be configured to be the virtual network.  Root access on all machines
+    is required for this operation.  With a handful of machines, it is
+    feasible to manually setup Modelnet. 
+  </p>
+
+  <p>
+    Modelnet requires all machines in the emulation cluster have the
+    <url id="http://search.cpan.org/author/GRANTM/XML-Simple-2.07/lib/XML/Simple.pm" name="XML::Simple"> perl module installed.
+  </p>
+
+  <sect>
+  <heading>Sudo support</heading>
+
+  <p>
+    Root access is required to deploy a network topology. 
+    Using sudo, this access can be fine
+    tuned and password-free.   The deploy scripts assume sudo is
+    configured on each machine used for Modelnet.   
+  </p>
+
+  <p>
+    For controlled access, the /etc/sudoers (or /usr/local/etc/sudoers
+    on FreeBSD) can specify the Modelnet commands.
+    Add these lines to sudoers, for password-free access:
+    <example>
+    Host_Alias      MODELHOSTS = larry moe curly
+    User_Alias      MODELERS =  login names go here  
+    Cmnd_Alias MODELCMDS = /sbin/ifconfig, /sbin/route, \
+            /sbin/kldload, /sbin/kldunload, /sbin/ipfw, /sbin/sysctl, \
+	    /usr/local/bin/modelload, /usr/local/bin/ipfwload
+    MODELERS MODELHOSTS = NOPASSWD: MODELCMDS
+    </example>
+    To test your sudo access, do <tt>sudo -l</tt>
+  </p>
+
+  <sect>
+  <heading>Manual Deployment</heading>
+
+  <p>
+    Modelnet can be deployed by logging in to each host, and running the
+    <tt>deployhost</tt> command.  This commond configures all the
+    virtual IP addresses, routes, and loads the topology into the emulator.
+    <example>
+    deployhost example.model example.route
+    </example>
+    Once <tt>deployhost</tt> has run on every machine in the hosts file,
+    the system is ready to emulate the virtual network.
+  </p>
+
+
+  <sect id=autodeploy>
+  <heading>Automated Deployment</heading>
+
+  <p>
+  For large emulations, deployment can be automated as a
+  a single command when gexec remote access to the cluster is available.
+  See <ref id="build_gexec">.
+    <example>
+    deploy example.model example.route
+    </example>
+  The <tt>deploy</tt> can be run on any node in the <tt>gexec</tt> cluster.
+  </p>
+
+</chapt>
+
+<!-- Keep this comment at the end of the file
+Local variables:
+mode: sgml
+sgml-omittag:nil
+sgml-shorttag:t
+sgml-namecase-general:t
+sgml-general-insert-case:lower
+sgml-minimize-attributes:nil
+sgml-always-quote-attributes:t
+sgml-indent-step:2
+sgml-indent-data:t
+sgml-parent-document:("../debiandoc-sgml.en.sgml" "book" "chapt")
+sgml-exposed-tags:nil
+sgml-local-catalogs:nil
+sgml-local-ecat-files:nil
+End:
+-->

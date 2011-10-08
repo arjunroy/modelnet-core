@@ -96,10 +96,10 @@ Contents
      Modelnet is designed to run on a machine room cluster to evaluate wide
      area distributed systems.  One or more of the cluster machines is set
      aside for traffic emulation, while the remainder can be used to
-     operate as nodes in the application.  When these nodes communicate with
-     each other, those IP packets are sent through the emulators to create
-     the illusion that application packets are crossing the wide area
-     Internet.
+     operate as nodes in the application.  When these nodes communicate
+     with each other, those IP packets are sent through the emulators to
+     create the illusion that application packets are crossing the wide
+     area Internet.
 
      To use Modelnet, a virtual network topology must first be created.
      This virtual network is what the application traffic will experience.
@@ -141,11 +141,11 @@ Contents
 -------------------------
 
      A Modelnet cluster can be as small as two machines; one emulator
-     running FreeBSD or Linux, and one machine hosting the virtual nodes.  We 
-     have successfully hosted virtual nodes on Linux, Xen-Linux, Solaris and
-     FreeBSD.  The crucial feature required to host a virtual node is IP
-     aliasing.  With IP aliases, entries can be added to the route table so
-     the host properly handles Modelnet IP packets.
+     running FreeBSD or Linux, and one machine hosting the virtual nodes.
+     We have successfully hosted virtual nodes on Linux, Xen-Linux, Solaris
+     and FreeBSD.  The crucial feature required to host a virtual node is
+     IP aliasing.  With IP aliases, entries can be added to the route table
+     so the host properly handles Modelnet IP packets.
 
      In practice, at Duke we use Linux Debian machines to host virtual
      nodes, and so this distribution has the most support for that system
@@ -154,8 +154,8 @@ Contents
      proper packages for that installation.
 
      Modelnet has also been verified to run on Ubuntu 10.04 for both the
-     emulator core and the virtual node hosts. Note that at present, the Linux
-     version of Modelnet only supports one emulator in the core.
+     emulator core and the virtual node hosts.  Note that at present, the
+     Linux version of Modelnet only supports one emulator in the core.
 
      A LAN with gigabit ethernet links to the emulators gets the best
      utilization.  A gigahertz or faster CPU with a gigabit ethernet NIC on
@@ -166,9 +166,9 @@ Contents
 1.3. Downloads and Related Packages
 -----------------------------------
 
-     Note that this section is older documentation related to FreeBSD 4.x. For
-     a more up to date version, please see LINUX_QUICKSTART, which might use
-     newer versions of these packages.
+     Note that this section is older documentation related to FreeBSD 4.x.
+     For a more up to date version, please see LINUX_QUICKSTART, which
+     might use newer versions of these packages.
 
         * Modelnet (http://issg.cs.duke.edu/modelnet) - the current release
           page for Modelnet.

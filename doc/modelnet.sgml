@@ -1,0 +1,55 @@
+<!--
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+-->
+
+<!doctype debiandoc public "-//DebianDoc//DTD DebianDoc//EN"
+[
+
+    <!-- textual data entities -->
+    <!entity titletoc		system "modelnet-doc/titletoc.sgml">
+    <!entity ch-intro		system "modelnet-doc/intro.sgml">
+    <!entity ch-install		system "modelnet-doc/install.sgml">
+    <!entity ch-model		system "modelnet-doc/model.sgml">
+    <!entity ch-deploy		system "modelnet-doc/deploy.sgml">
+    <!entity ch-execute		system "modelnet-doc/execute.sgml">
+    <!entity ch-validate	system "modelnet-doc/validate.sgml">
+
+]
+>
+
+<debiandoc>
+
+  <book id="modelnet-doc">
+
+    &titletoc;
+
+    &ch-intro;
+    &ch-install;
+    &ch-model;
+    &ch-deploy;
+    &ch-execute;
+    &ch-validate;
+
+  </book>
+
+</debiandoc>
+
+<!-- Keep this comment at the end of the file
+Local variables:
+mode: sgml
+sgml-omittag:nil
+sgml-shorttag:t
+sgml-namecase-general:t
+sgml-general-insert-case:lower
+sgml-minimize-attributes:nil
+sgml-always-quote-attributes:t
+sgml-indent-step:2
+sgml-indent-data:nil
+sgml-parent-document:nil
+sgml-declaration:nil
+sgml-exposed-tags:nil
+sgml-local-catalogs:nil
+sgml-local-ecat-files:nil
+End:
+-->

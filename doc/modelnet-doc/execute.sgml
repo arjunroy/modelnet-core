@@ -1,0 +1,133 @@
+<!--
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+-->
+
+<chapt id="execute">
+  <heading>Running experiments on a Model Network</heading>
+  
+  <sect id="remote_execution">
+  <heading>Running Programs on a Virtual Node</heading>
+
+  <p>
+    Once a network topology  is deployed onto the emulation hardware,
+    the system is live and it can test a distributed application.
+    All packets an edge node transmits with a source and destination IP
+    in the 10.0.0.0/8 network will be sent its emulator.
+    This requires that the src and dst IP be set correctly.
+    Modelnet provides <tt>libipaddr</tt> to control the IP
+    addresses applications use. 
+  </p>
+
+  <sect>
+  <heading>vnrun</heading>
+
+  <p>
+    <tt>vnrun</tt> will execute a program on a virtual node, or on all
+    virtual nodes.  It creates an environment that make sure the source
+    address is set correctly for any internet sockets.  
+    The example runs the date program on all virtual nodes listed in
+    example.model.
+    <example>
+    vnrun all example.model gnutella
+    </example>
+    A copy of <tt>gnutella</tt> is run on every virtual node.
+    If the <tt>gnutella</tt> program opens a socket, the IP source address
+    will be set according the virtual running that instance of gnutella.
+  </p>
+
+  <p>
+     <tt>vnrun</tt> can also start a single instance of an application
+     if a virtuan node number is given instead of "all".
+    <example>
+	usage: vnrun [-d] &lt; VN# | all &gt; &lt;file.model&gt; &lt;command&gt;
+    </example>
+  </p>
+
+  <sect id="ipaddr">
+  <heading>libipaddr</heading>
+  <p>
+    <strong>libipaddr has only been tested on linux glibc-2.2.5</strong>  
+  </p>
+
+  <p>
+    <tt>vnrun</tt> uses <tt>libipaddr</tt> to make applications use the
+    correct IP addresses.  <tt>libipaddr</tt> is a shared
+    library so it requires that applications are dynamically linked
+    executables.  For Unix systems, it relies on the <tt>LD_PRELOAD</tt>
+    of <tt>ld.so</tt> to interpose its own version of socket related
+    system calls.  Typical applications do not explicitly set the
+    source IP address.   The libipaddr versions of
+    <manref name="bind" section="2">,
+    <manref name="sendto" section="2"> and other syscalls explicitly
+    set the source and destination IP addresses.
+  </p>
+
+  <p>
+     The <tt>libipaddr</tt> does not work with static binaries or
+     with RAW sockets.   In particular, <em>ping</em> uses RAW sockets
+     and therefore cannot have its addresses manipulated by <tt>libipaddr</tt>.
+     Test connections with netperf or some other higher level
+     application than <manref name="ping" section="8">.
+  </p>
+
+
+  <p>
+    <tt>libipaddr</tt> sets the  source address to be the address in the environment
+    variable SRCIP.  Using sh syntax:
+    <example>
+	$ LD_PRELOAD=prefix/lib/libipaddr.so SRCIP=10.0.0.1 netperf -H 10.0.1.1
+    </example>
+    The <tt>netperf</tt> packets transmitted with have a source IP of
+    10.0.0.1.  Server processes, eg. <tt>netserver</tt>, address return
+    packets simply by swapping the source and destination addresses.  This
+    means pure server processes do not need the libipaddr system calls.
+  </p>
+
+  <p>
+    Packets being sent between two virtual nodes on the
+    same edge node must be prevented from going through the loopback interface. 
+    This is why the destination IP address is also set by <tt>libipaddr</tt>.  This
+     forces packets to actually go to the emulator when the
+    destination virtual node happens to reside on the same host as
+    source virtual node.  This is done by turning on bit 23 of the
+    destination address.  Since the 10.128.0.0/24 subnet does not
+    reside on the host with the 10.0.0.0/24 net, it will send the packet
+    to the emulator all other packets for 10.0.0.0/8.
+    In this example, even though 10.0.0.1 and 10.0.0.2 are on
+    the same host, the netperf packets in both directions will go
+    through the emulator
+    <example>
+	$ LD_PRELOAD=prefix/lib/libipaddr.so SRCIP=10.0.0.1 netperf -H 10.0.0.2
+    </example>
+  </p>
+
+  <p>
+    The emulator turn off bit 23 of the destination IP.  If 23 was set, it
+    will turn it on in the source IP address before delivering the packet
+    to the edge node with the destination virtual node.  This is so servers
+    will automatically send replies with bit 23 set.  So again, pure
+    servers do not need <tt>libipaddr</tt> PRELOAD-ed.  This feature is the
+    default behavior of <tt>libipaddr</tt>.  To disable this feature, define
+    the environment variable <tt>KEEP_DSTIP</tt>.
+  </p>
+
+</chapt>
+
+<!-- Keep this comment at the end of the file
+Local variables:
+mode: sgml
+sgml-omittag:nil
+sgml-shorttag:t
+sgml-namecase-general:t
+sgml-general-insert-case:lower
+sgml-minimize-attributes:nil
+sgml-always-quote-attributes:t
+sgml-indent-step:2
+sgml-indent-data:t
+sgml-parent-document:("../debiandoc-sgml.en.sgml" "book" "chapt")
+sgml-exposed-tags:nil
+sgml-local-catalogs:nil
+sgml-local-ecat-files:nil
+End:
+-->

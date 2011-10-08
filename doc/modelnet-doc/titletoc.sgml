@@ -1,0 +1,58 @@
+<!--
+
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+-->
+
+<titlepag>
+
+  <title>Modelnet Howto</title>
+
+  <author>
+    <name>David Becker and Ken Yocum</name>
+    <email>(becker,grant)@cs.duke.edu</email>
+  </author>
+
+  <version>version 0.99</version>
+
+
+  <copyright>
+    <copyrightsummary>
+      Copyright &copy; 2003 Duke University.  All rights reserved.
+      See COPYING for license statement.
+    </copyrightsummary>
+<p>
+Most files in this distribution are licensed under the terms of the GNU
+General Public License (GPL), see COPYING for the full license statement. 
+<p>
+For the convenience of users who are porting OSes and applications to
+run as ModelNet edge nodes, certain files in this distribution are not
+subject to the GPL when distributed separately or included in software
+packages outside this distribution. Instead we specify the more
+relaxed BSD-style license. Affected files include the libipaddr in the
+tools directory. In all such cases, license terms are stated at the
+top of the file.
+
+  </copyright>
+
+</titlepag>
+
+<toc detail="sect">
+
+<!-- Keep this comment at the end of the file
+Local variables:
+mode: sgml
+sgml-omittag:nil
+sgml-shorttag:t
+sgml-namecase-general:t
+sgml-general-insert-case:lower
+sgml-minimize-attributes:nil
+sgml-always-quote-attributes:t
+sgml-indent-step:2
+sgml-indent-data:t
+sgml-parent-document:("../debiandoc-sgml.en.sgml" "book" "titlepag")
+sgml-exposed-tags:nil
+sgml-local-catalogs:nil
+sgml-local-ecat-files:nil
+End:
+-->
