@@ -1,0 +1,406 @@
+#!/usr/local/bin/perl 
+# 
+# take a directory name_<core number>
+# it consists of files core<#>.txt there should be <core number> of these files.
+# Each core file consists of lines of the format
+# 
+#
+# time cpu pkts_seen pkts_accepted pkts_from_edge mc_send mc_recv pkt_hops
+#
+# pkt_hops = times re_enqueue() was called
+#
+# The numbers are since the last entry, but note that the last three columns
+# are divided by the elapsed time to give packets per sec.  cpu_usage is out
+# of 1.0.  
+#
+# 
+# For each coreX.txt file generate a coreX_avg.txt 
+
+#global array of logdata
+$meta={};
+
+sub open_metafile{   
+    my @t;
+    my @dname;
+    open META, "<meta_data.txt" or die "can't find meta_data.txt in current directory\n";
+    while(<META>){
+	next if /^#/; # ignore comments
+	next if /^\s/; # ignore blank lines
+	@t = split;
+# format
+# <directory> <numcores> 
+#	printf "metafile input $t[0] $t[1], dname $dname[0]\n"; 
+	# key is file name, value is number of cores
+	@testname = split /c/, $t[0];
+	$meta{$testname[0]}{$t[0]} = $t[1];
+    }
+}
+
+
+sub input_core{   
+    my $fname = $_[0];
+    my $cnum = $_[1];
+    my $time,$cpu=0,$pseen=0,$paccpt=0;
+    my $pmc_r=0, $pmc_s=0, $pedge=0, $phops=0; 
+    my $total_sample_time;
+    my @t;
+    my $coredata_p = $_[2];
+
+    open DATA, "<$fname" or die "can't open file $fname\n";
+
+    # filter based on cpu utilizations 
+    my $cpu_filter = 0, $maxcpu = 0;
+    my $idx = 0;    
+    while(<DATA>){     
+	@t = split;
+	$idx++;
+	if ($idx < 5) {next};
+	if ($t[1] > $maxcpu) {
+	    $maxcpu = $t[1];
+	}
+    }
+#    printf "$fname maxcpu $maxcpu\n";
+    close DATA;
+    open DATA, "<$fname" or die "can't open file $fname\n";
+    $cpu_filter = $maxcpu * 0.5; # capture all that are > 1/2*maxcpu 
+    my $start_time = 0;
+    my $samples = 0;
+    $idx = 0;
+    while(<DATA>){     
+	@t = split; # split on white space.
+	$idx++;
+	if ($t[1] < $cpu_filter ||
+	    $idx < 5) {
+	    next;
+	}
+	$samples++;
+	$time = $t[0];
+	$cpu += $t[1];
+	$pseen += $t[2];
+	$paccpt += $t[3];
+	$pedge += $t[4];	
+	$pmc_s += $t[5];	
+	$pmc_r += $t[6];	
+	$phops += $t[7];	
+	if ($start_time == 0){
+	    $start_time =$time;
+	}		              	
+    }
+
+    $coredata_p->[$cnum]{cpu} = $cpu / $samples;
+    $coredata_p->[$cnum]{pseen} = $pseen / $samples;
+    $coredata_p->[$cnum]{paccpt} = $paccpt / $samples;
+    $coredata_p->[$cnum]{pedge} = $pedge / $samples;
+    $coredata_p->[$cnum]{pmc_s} = $pmc_s / $samples;
+    $coredata_p->[$cnum]{pmc_r} = $pmc_r / $samples;
+    $coredata_p->[$cnum]{phops} = $phops / $samples;
+
+    $total_sample_time = $time - $start_time;
+
+    printf "Stats for core $cnum: CPU $coredata_p->[$cnum]{cpu} EDGE $coredata_p->[$cnum]{pedge} ";
+    printf "elapsed time $total_sample_time samples $samples\n";
+    
+    close DATA;
+
+}
+
+
+######################################################################################
+# begin here
+######################################################################################
+
+
+$options = 0;
+$verbose = 0;
+$dir = 0;
+$ncores = 0;
+$usemetafile = 0;
+# get the directory from the input 
+
+for ($i = 0; $i < @ARGV; $i++){
+    if($ARGV[$i] eq '-n'){
+	$ncores = $ARGV[++$i];
+    }
+    if($ARGV[$i] eq '-d'){
+	$dir = $ARGV[++$i];
+    }
+    if($ARGV[$i] eq '-meta'){
+	$usemetafile = 1;
+    }
+}
+
+if ((!$dir || !$ncores) && !$usemetafile){
+    printf "Please specify a directory -d <testname> -n <numcores>\n";
+    exit;
+}
+
+
+
+#####################################################################
+
+
+
+#############################################################################
+# input data and average 
+#############################################################################
+if ($usemetafile) {
+    open_metafile();
+    my $dataset;
+    my $datasetname;
+    my %alldata;
+    my $coredata_p = [];
+    my $sum_cpu,$sum_pseen, $sum_paccpt, $sum_pmc;
+    my $var_cpu,$var_pseen, $var_paccpt, $var_pmc;
+    my $test_range,$efficiency;
+    my @dtypes;
+    my $j,$i;
+    my $intra;
+
+#while (<>) { $total += $_; $sqtotal += $_*$_; $count++; }
+#$mean = $total/$count;
+#$variance = $sqtotal/$count - $mean*$mean;
+#$stddev = sqrt($variance);
+
+
+    # for each set of files, find avg of cores
+    # that's a key 
+    foreach $dataset (keys %meta){	
+	foreach $datasetname (keys %{$meta{$dataset}}){
+	    printf "metafile - data $dataset file $datasetname\n";
+	    $ncores = $meta{$dataset}{$datasetname};
+	    $sum_cpu=0;
+	    $var_cpu=0;
+	    $sum_pseen=0;
+	    $sum_paccpt=0;
+	    $sum_pedge=0;
+	    $sum_pmc_s=0;
+	    $sum_pmc_r=0;
+	    $sum_phops=0;
+	    # average across all cores in an experiment
+	    for ($i = 0; $i < $ncores; $i++){
+		$corename = $datasetname."/"."core".($i+1).".txt";
+		# average across the samples of a single core
+		input_core($corename,$i,$coredata_p);		
+		## sum of pps for each core
+		$sum_cpu += $coredata_p->[$i]{cpu};
+		$var_cpu += $coredata_p->[$i]{cpu}*$coredata_p->[$i]{cpu};
+		$sum_pseen += $coredata_p->[$i]{pseen};
+		$sum_paccpt += $coredata_p->[$i]{paccpt};
+		$sum_pedge += $coredata_p->[$i]{pedge};
+		$sum_pmc_s += $coredata_p->[$i]{pmc_s};
+		$sum_pmc_r += $coredata_p->[$i]{pmc_r};
+		$sum_phops += $coredata_p->[$i]{phops};
+	    }
+	    $alldata{$dataset}[$ncores-1]{cpu} = $sum_cpu / $ncores;
+	    $alldata{$dataset}[$ncores-1]{varcpu} = 
+		($var_cpu / $ncores) - (($sum_cpu / $ncores) * ($sum_cpu / $ncores));
+	    $alldata{$dataset}[$ncores-1]{stdevcpu} = 
+		sqrt($alldata{$dataset}[$ncores-1]{varcpu});
+	
+	    $alldata{$dataset}[$ncores-1]{pseen} = $sum_pseen / $ncores;
+	    $alldata{$dataset}[$ncores-1]{paccpt} = $sum_paccpt / $ncores; 
+#	    printf "sumpedge $sum_pedge / $ncores\n"; 
+	    $alldata{$dataset}[$ncores-1]{pedge} = $sum_pedge / $ncores;
+	    $alldata{$dataset}[$ncores-1]{pmc_s} = $sum_pmc_s / $ncores;
+	    $alldata{$dataset}[$ncores-1]{pmc_r} = $sum_pmc_r / $ncores;
+	    $alldata{$dataset}[$ncores-1]{phops} = $sum_phops / $ncores;
+
+	    $alldata{$dataset}[$ncores-1]{sumcpu} = $sum_cpu ;
+	    $alldata{$dataset}[$ncores-1]{sumpseen} = $sum_pseen ;
+	    $alldata{$dataset}[$ncores-1]{sumpaccpt} = $sum_paccpt ; 
+	    $alldata{$dataset}[$ncores-1]{sumpedge} = $sum_pedge ;
+	    $alldata{$dataset}[$ncores-1]{sumpmc_s} = $sum_pmc_s ;
+	    $alldata{$dataset}[$ncores-1]{sumpmc_r} = $sum_pmc_r ;
+	    $alldata{$dataset}[$ncores-1]{sumphops} = $sum_phops ;
+	}
+    }
+
+
+    #############################################################################
+    # write gnuplot output files 
+    #############################################################################
+
+    # generate gnuplot type files 
+    # a file per type of partitioning, and one for sums and one for averages.  
+    
+    foreach $dataset (keys %meta){	
+	open OFILE, ">".$dataset."_sum.txt" or die "couldn't open ${dataset}.txt file\n";
+	$test_range = keys %{$meta{$dataset}}; # 1->test_range cores	    
+	printf "Dataset $dataset test_range $test_range\n";
+	$t = 0;
+	for ($i = 0; $i < $test_range; $i++){
+	    # Aargh, no zero data set (didn't run with one core) of some of these
+	    $t++;
+	    if (!(exists $alldata{$dataset}[$i]{sumpseen})) { $test_range++; next;}	   
+	    printf OFILE "$t ";
+	    printf OFILE "$alldata{$dataset}[$i]{cpu} ";
+	    printf OFILE "$alldata{$dataset}[$i]{sumpseen} ";
+	    printf OFILE "$alldata{$dataset}[$i]{sumpaccpt} ";
+	    printf OFILE "$alldata{$dataset}[$i]{sumpedge} ";
+	    printf OFILE "$alldata{$dataset}[$i]{sumpmc_s} ";
+	    printf OFILE "$alldata{$dataset}[$i]{sumpmc_r} ";
+	    printf OFILE "$alldata{$dataset}[$i]{sumphops} ";
+	    if ($alldata{$dataset}[$i]{sumpseen} > 0)
+	      {
+		$efficiency = $alldata{$dataset}[$i]{sumpedge} / $alldata{$dataset}[$i]{sumpseen};
+	      }
+	    else
+	      {
+		printf "$dataset:$i is bad.\n";
+		$efficiency = 1;
+	      }
+	    
+	    #REcord efficiency!
+	    $alldata{$dataset}[$i]{efficiency} = $efficiency;
+	    printf OFILE "$efficiency ";
+	    $intra = $alldata{$dataset}[$i]{sumpmc_s}/$alldata{$dataset}[$i]{sumphops};
+	    printf OFILE "$intra ";
+	    # ONLY SUM HAS VARIANCE/STDEV!
+	    printf OFILE "$alldata{$dataset}[$i]{stdevcpu} ";
+	    printf OFILE "\n";
+	}
+	printf OFILE "\n";
+	close OFILE;
+    }
+
+    
+    foreach $dataset (keys %meta){	
+	open OFILE, ">".$dataset."_avg.txt" or die "couldn't open ${dataset}.txt file\n";
+	$test_range = keys %{$meta{$dataset}}; # 1->test_range cores	    
+	printf "Dataset $dataset test_range $test_range\n";
+	$t = 0;
+	for ($i = 0; $i < $test_range; $i++){
+	    # Aargh, no zero data set (didn't run with one core) of some of these
+	    $t++;
+	    if (!(exists $alldata{$dataset}[$i]{sumpseen})) {$test_range++; next;}   
+	    printf OFILE "$t ";
+	    printf OFILE "$alldata{$dataset}[$i]{cpu} ";
+	    printf OFILE "$alldata{$dataset}[$i]{pseen} ";
+	    printf OFILE "$alldata{$dataset}[$i]{paccpt} ";
+	    printf OFILE "$alldata{$dataset}[$i]{pedge} ";
+	    printf OFILE "$alldata{$dataset}[$i]{pmc_s} ";
+	    printf OFILE "$alldata{$dataset}[$i]{pmc_r} ";
+	    printf OFILE "$alldata{$dataset}[$i]{phops} ";
+	    printf OFILE "\n";
+	}
+	printf OFILE "\n";
+	close OFILE;
+    }
+
+
+    #############################################################################
+    # write expected increase in traffic relative to random 
+    #############################################################################
+    my $rand = "rand";
+    my $met = "met";
+    my $blob = "blob";
+
+    foreach $dataset (keys %meta){
+	if ($dataset =~ m/rand/)  {
+	    $rand = $dataset;
+	}
+	if ($dataset =~ m/met/)  {
+	    $met = $dataset;
+	}
+	if ($dataset =~ m/blob/)  {
+	    $blob = $dataset;
+	}
+    }   
+
+    # do BLOB
+    my @blobmet = ($blob,$met);
+    my $pps_diff= 0;
+    my $Epps= 0;
+    open OFILE, ">".expected."_table.txt" or die "couldn't open ${dataset}.txt file\n";
+    $tt =0;
+    $test_range = keys %{$meta{$rand}}; # 1->test_range cores	    
+    for ($i = 0; $i < $test_range; $i++){
+	$tt++;
+	printf OFILE "$tt ";       
+	foreach $dataset (@blobmet){
+	    $pps_diff = $alldata{$rand}[$i]{sumpseen} - 
+		$alldata{$dataset}[$i]{sumpseen};
+	    $Epps = $pps_diff * $alldata{$dataset}[$i]{efficiency};	   
+	    printf OFILE "$Epps ";
+	}
+	printf OFILE "\n";
+    }
+
+    
+    close OFILE;
+
+
+
+
+
+
+
+    #############################################################################
+    # write output file 
+    #############################################################################
+    
+    # format is for each number (cpu, pseen, etc) print all values for rand/metis/kcluster
+
+    open OFILE, ">output.txt" or die "couldn't open output.txt file\n";   
+    $test_range = 7; # we use up to 8 cores for most tests
+    @dtypes = qw(cpu pseen paccpt pedge pmc_s pmc_r phops);
+    # iterate across each data type
+    foreach $currenttype (@dtypes){
+
+	for ($i = 0; $i < $test_range; $i++){
+	    $t = $i+1;
+	    printf OFILE "$t ";
+	    foreach $dataset (keys %meta){	
+		# Aargh, no zero data set (didn't run with one core) of some of these
+		if (!(exists $alldata{$dataset}[$i]{sumpseen})) {
+		    next;}
+		printf OFILE "$alldata{$dataset}[$i]{$currenttype} ";
+	    }
+	    printf OFILE "\n";
+	}
+	printf OFILE "\n";
+    }
+    close OFILE;
+    open OFILE, ">output_sum.txt" or die "couldn't open output_sum.txt file\n";   
+    $test_range = 7; # we use up to 8 cores for most tests
+    @dtypes = qw(sumcpu sumpseen sumpaccpt sumpedge sumpmc_s sumpmc_r sumphops);
+    # iterate across each data type
+    foreach $currenttype (@dtypes){
+	for ($i = 0; $i < $test_range; $i++){
+	    $t = $i+1;
+	    printf OFILE "$t ";
+	    foreach $dataset (keys %meta){	
+		# Aargh, no zero data set (didn't run with one core) of some of these
+		if (!(exists $alldata{$dataset}[$i]{sumpseen})) {
+		    next;}
+		printf OFILE "$alldata{$dataset}[$i]{$currenttype} ";
+	    }
+	    printf OFILE "\n";
+	}
+	printf OFILE "\n";
+    }
+    close OFILE;
+
+
+
+    printf "Finished!  Generated output.txt\n";
+
+
+} else {
+    my $coredata_p = [];
+    # single directory average
+    for ($i = 0; $i < $ncores; $i++){
+	$corename = "core".($i+1).".txt";
+	input_core($corename,$i,$coredata_p);
+    }
+    printf "Finished!\n";
+    exit;
+}
+
+
+
+
+
+
+
+

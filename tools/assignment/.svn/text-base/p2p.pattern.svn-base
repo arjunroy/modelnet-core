@@ -1,0 +1,77 @@
+# This is a description of peer-to-peer type flows.
+# Leeches account for 40% of clients (by probability)
+# peers account for 40%, and servers account for 20%.
+# Leeches have link bandwidths of 100k,
+# peers have 500k, and servers have 1 mbps. 
+# leeches send very little, peers send a medium amount, and 
+# servers send the most.  Most sending goes to leeches and
+# peers.
+
+class leech
+      weight: 40
+      link: 0.1
+      flow
+	to:		leech
+	number_low:	0
+	number_high:	2
+	percent:	10
+      end
+      flow
+	to:	    peer
+	number_low:	0
+	number_high:	2
+	percent:	10
+      end
+      flow
+	to:	    server
+	number_low:	0
+	number_high:	2
+	percent:	10
+      end
+end
+
+class peer
+      weight: 40
+      link:0.5
+      flow
+	to: leech
+	number_low: 2
+	number_high: 4
+	percent:     40
+      end
+      flow 
+	   to: peer
+	   number_low: 2
+	   number_high: 4
+	   percent: 60
+      end
+      flow 
+	   to: server
+	   number_low:  0
+	   number_high: 1
+	   percent:  60
+      end
+end
+
+class server
+      weight: 20
+      link: 1
+      flow
+	to: leech
+	number_low: 0
+	number_high: 10
+	percent: 100
+      end
+      flow
+	to: peer
+	number_low: 0
+	number_high: 10
+	percent: 100
+      end
+      flow
+	to: server
+	number_low: 0
+	number_high: 2
+	percent: 100
+      end
+end   

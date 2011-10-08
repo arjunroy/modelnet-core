@@ -1,0 +1,136 @@
+#include <LEDA/graph.h>
+#include <time.h>
+#include <LEDA/set.h>
+#include <LEDA/d_array.h>
+#include <LEDA/p_queue.h>
+#include <unistd.h>
+#include <ctype.h>
+
+#include "gmlp.h"
+
+bool verbose = false;
+string strip(string s)
+{
+    string ret;
+    int i;
+    for (i=0;i<s.length();i++)
+    {
+	if (isalnum(s[i]))
+	    ret+=s[i];
+	else if (s[i]!=' ')
+	    ret+='_';
+    }
+    return ret;
+}
+
+int greater(const int& a, const int& b)
+{
+    return b-a;
+}
+
+int main(int argc, char* argv[])
+{
+    if (argc != 3)
+    {
+	cerr << "error: args." << endl;
+	exit(1);
+    }
+    mn_graph g1,g2;
+    raitner_parser parser1(g1);
+    raitner_parser parser2(g2);
+    if (!parser1.parse(argv[1]) || !parser2.parse(argv[2]))
+    {
+	cerr << "error: reading graphs" << endl;
+	exit(1);
+    }
+    g1.make_directed();
+    g2.make_directed();
+    int currCoreNum=0;
+    d_array<string, int> coreNum;
+    d_array<int, string> coreName;
+    d_array<int, int> asg1, asg2;
+    d_array<int, int> partSizes;
+    set<int> entrypipes;
+    edge e1,e2;
+    string name;
+    forall_edges(e1,g1)
+    {
+	name = strip(g1[e1].s("assignment"));
+	if (!coreNum.defined(name))
+	    coreNum[name]=currCoreNum++;
+	asg1[g1[e1].i("pipe_nr")]=coreNum[name];
+    }
+    forall_edges(e2,g2)
+    {
+	name = strip(g2[e2].s("assignment"));
+	if (!coreNum.defined(name))
+	{
+	    coreNum[name]=currCoreNum++;
+	    partSizes[coreNum[name]]=0;
+	}
+	int nr=g2[e2].i("pipe_nr");
+	if (!asg1.defined(nr))
+	{
+	    cerr << "error: graph2 has pipe " << nr<< " and graph1 doesn't."<<endl;
+	    exit(1);
+	}
+	if (g2.outdeg(source(e2)) == 1)
+	    continue;
+	    asg2[nr]=coreNum[name];
+	partSizes[coreNum[name]]++;
+    }
+    p_queue<int, int> parts(greater);
+    forall_defined(name, coreNum)
+    {
+	if (verbose) cerr << name << endl;
+	coreName[coreNum[name]]=name;
+	parts.insert(partSizes[coreNum[name]],coreNum[name]);
+    }
+    d_array<int,int> perm, revperm;
+    int part2, part1, a2, nr;
+    while (parts.size())
+    {
+	part2 = parts.inf(parts.find_min());
+	parts.del_min();
+	int bestscore = INT_MAX;
+	int bestpart = -1;
+	forall_defined(part1, coreName)
+	{
+	    if (perm.defined(part1))
+		continue;
+	    int mismatches = 0;
+	    forall_defined(nr,asg2)
+	    {
+		if (asg2[nr]!=part2)
+		    continue;
+		if (asg1[nr]!=part1)
+		    mismatches++;
+	    }
+	    if (mismatches < bestscore)
+	    {
+		bestscore = mismatches;
+		bestpart = part1;
+	    }
+	}
+	perm[bestpart]=part2;
+    }
+    forall_defined(part1,perm)
+    {
+	revperm[perm[part1]]=part1;
+	if (verbose) cerr << perm[part1] << " --> " << part1 <<endl;
+    }
+    int changes = 0;
+    int pipes = 0;
+    forall_defined(nr,asg2)
+    {
+	if (revperm.defined(asg2[nr]))
+	    asg2[nr]=revperm[asg2[nr]];
+	if (asg2[nr] != asg1[nr] && g2.outdeg(source(e2)) == 1)
+	{
+	    cout << nr << "\t" << coreName[asg1[nr]] <<"\t" << coreName[asg2[nr]] << endl;
+	    changes++;
+	}
+	pipes++;
+    }
+    cerr << changes << " pipes changed out of " << pipes << endl;
+}

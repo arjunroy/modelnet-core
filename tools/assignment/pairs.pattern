@@ -1,0 +1,17 @@
+# This is an example of a flow pattern description.
+# "peer" is the only declared client class, so all
+# clients will be in the class "peer."
+# Members of "peer" will have link bandwidths between 1 and 10,
+# and each will have 10 flows to other "peer"s, each
+# of which will use as much bandwidth as possible.
+
+class peer
+      weight: 1
+      link_low: 1
+      link_high: 10
+      flow
+	to: peer
+	number: 10
+	percent: 100
+      end
+end

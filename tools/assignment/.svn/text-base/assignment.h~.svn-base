@@ -1,0 +1,172 @@
+/* Ethan Eade, 8/30
+ * This header defines the interface of an assignment object.
+ * An assignment object is responsible for taking a weighted
+ * graph with unidirectional (mirrored) edges and assigning 
+ * each pipe to a numbered core.  The edges in the post-
+ * assignment topology have an "assignment" attribute specifying 
+ * the core they to which they are assigned. Each subclass also 
+ * implements a factory class to facilitate creation of the objects.
+ */
+
+#ifndef __ASSIGNMENT_H_
+#define __ASSIGNMENT_H_
+
+#include <stdlib.h>
+#include "gmlp.h"
+#include "weight.h"
+#include "util.h"
+
+//Base assignment class
+class assignment
+{
+ public:
+    //toAssign is a weighted graph, numParts specifies how many partitions
+    assignment(weighted_graph& toAssign, int numParts);
+    virtual ~assignment(){}
+
+    //Perform the assignment process
+    virtual int assign()=0;
+
+    //Write the assignment to the graph
+    void save();
+
+    //Return the assignment of a given edge
+    int assignmentOf(edge e);
+
+    //Return the total badness 
+    double getBadness();
+
+    //What is this assignment called?
+    virtual const char* name()=0;
+
+    //Get information about how many vertices (V) and how many
+    //edges (E) are in the graph that is partitioned
+    virtual void getGraphSize(int& V, int& E){V=wg.g.number_of_nodes(); E=wg.g.number_of_edges();}
+    double stress, diff;
+ protected:
+    double evalBadness();
+    weighted_graph& wg;
+    int parts;
+    leda_edge_array<int> assigns;
+    double badness;
+};
+
+//This factory makes creating assignments easier.
+class assignment_factory
+{
+ public:
+  virtual assignment* create(weighted_graph& toAssign, int numParts)=0;
+};
+
+//This is the base class for the external library-based assignments.
+//It handles converting the LEDA graph into the appropriate format
+//for input into the library routines.
+class library_assignment : public assignment
+{
+ public:
+  library_assignment(weighted_graph& toAssign, int numParts, bool byEdge=false);
+  ~library_assignment();
+  int assign();
+  void getGraphSize(int& V, int& E){V=nverts;E=xadj[nverts];}
+ protected:
+  virtual int doLibraryCall()=0;
+  void constructGraph();
+  void constructTransformGraph();
+  void makeEdgeWeightsSymmetric();
+  node_array<int> indexOfNode;
+  edge_array<int> indexOfEdge;
+  node* nodeAt;
+  edge* edgeAt;
+  int* xadj;
+  int* adjacency;
+  int* vweights;
+  int* eweights;
+  int* assignvec;
+  int* assignmap;
+  int nverts;
+  bool edgePart;
+};
+
+//This extension of library_assignment calls the METIS library.
+class metis_assignment : public library_assignment
+{
+ public:
+  metis_assignment(weighted_graph& toAssign, int numParts, bool byEdge=false);
+  const char* name(){return (edgePart?"metis_edge":"metis_node");}
+  class factory : public assignment_factory
+    {
+    public:
+      factory(bool ByEdge=false){byEdge=ByEdge;}
+      assignment* create(weighted_graph& g, int numParts){return new metis_assignment(g, numParts,byEdge);}
+    private:
+      bool byEdge;
+    };
+ protected:	
+  int doLibraryCall();
+};
+
+//This extension of library_assignment calls the CHACO library.
+class chaco_assignment : public library_assignment
+{
+ public:
+  chaco_assignment(weighted_graph& toAssign, int numParts, bool byEdge=false);
+  const char* name(){return (edgePart?"chaco_edge":"chaco_node");}
+  class factory : public assignment_factory
+    {
+    public:
+      factory(bool ByEdge=false){byEdge=ByEdge;}
+      assignment* create(weighted_graph& g, int numParts){return new chaco_assignment(g, numParts,byEdge);}
+    private:
+      bool byEdge;
+    };
+ protected:
+  int doLibraryCall();
+};
+
+//This assignment partitions randomly among n cores.
+class random_assignment : public assignment
+{
+ public:
+  random_assignment(weighted_graph& toAssign, int numParts, int seed);
+  int assign();
+  const char* name(){return "random    ";}
+  class factory : public assignment_factory
+    {
+    public:
+      assignment* create(weighted_graph& g, int numParts){return new random_assignment(g, numParts,rand());}
+    };
+ private:
+  int randSeed;
+};
+
+//This assignment generates balanced, level-structure partitions.
+class blob_assignment : public assignment
+{
+ public:
+  blob_assignment(weighted_graph& toAssign, int numParts, int seed);
+  int assign();
+  const char* name(){return "blob      ";}
+  class factory : public assignment_factory
+    {
+    public:
+      assignment* create(weighted_graph& g, int numParts){return new blob_assignment(g, numParts,rand());}
+    };
+ private:
+  int randSeed;
+};
+
+//This class uses whatever assignment is already present in the attributes
+//of the LEDA graph;  it is useful for comparison purposes.
+class existing_assignment : public assignment
+{
+ public:
+  existing_assignment(weighted_graph& toAssign, int numParts);
+  int assign();
+  const char* name(){return "existing  ";}
+  class factory : public assignment_factory
+  {
+  public:
+    assignment* create(weighted_graph& g, int numParts){return new existing_assignment(g, numParts);}
+  };
+};
+#endif

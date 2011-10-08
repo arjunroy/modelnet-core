@@ -1,0 +1,15 @@
+% These are runtime parameters to the Chaco library.
+% Put them in the directory where Chaco runs for them 
+% to have effect.
+
+DEBUG_PARAMS=0
+ECHO=0
+OUTPUT_METRICS=0
+OUTPUT_TIME=0
+CHECK_INPUT=FALSE
+FREE_GRAPH=TRUE
+DEBUG_TRACE=0
+COARSEN_RATIO_MIN=.9
+MATCH_TYPE=1
+COARSE_NLEVEL_KL=1
+EIGEN_TOLERANCE=1e-3
