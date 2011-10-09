@@ -46,10 +46,10 @@ use warnings;
 ###############################################################################
 
 # XXX Tweak the following as desired.
-my $hopbw_kbps = 1000000;
+my $hopbw_kbps = 100;
 my $maxhopbw_kbps = 1000000;
-#my @udp_bw_steps = (0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4);
-my @udp_bw_steps = (1.0);
+my @udp_bw_steps = (0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4);
+#my @udp_bw_steps = (1.0);
 my $iperf_output_file_name = 'iperf_output.txt';
 my $data_file_name = 'output.data';
 my $udp_throughput_data_file_name = 'throughput.data';
