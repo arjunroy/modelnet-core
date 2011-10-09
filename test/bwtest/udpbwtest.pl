@@ -291,6 +291,10 @@ sub plot_throughput_scaling_graph {
     print PLOTSCRIPT "set terminal postscript\n";
     print PLOTSCRIPT "set xtic auto\n";
     print PLOTSCRIPT "set ytic auto\n";
+    print PLOTSCRIPT "set xrange [0:100]\n";
+    print PLOTSCRIPT "set autoscale xmax\n";
+    print PLOTSCRIPT "set yrange [0:100]\n";
+    print PLOTSCRIPT "set autoscale ymax\n";
     print PLOTSCRIPT "set title \"Observed UDP Throughput vs. Modelnet link bandwidth\"\n";
     print PLOTSCRIPT "set xlabel \"Modelnet link bandwidth (kbps)\"\n";
     print PLOTSCRIPT "set ylabel \"UDP Throughput at Iperf Server (kbps)\"\n";
@@ -315,6 +319,10 @@ sub plot_constant_bandwidth_graph {
     print PLOTSCRIPT "set terminal postscript\n";
     print PLOTSCRIPT "set xtic auto\n";
     print PLOTSCRIPT "set ytic auto\n";
+    print PLOTSCRIPT "set xrange [0:100]\n";
+    print PLOTSCRIPT "set autoscale xmax\n";
+    print PLOTSCRIPT "set yrange [0:100]\n";
+    print PLOTSCRIPT "set autoscale ymax\n";
     print PLOTSCRIPT "set title \"Observed UDP Throughput vs. UDP Generation Rate over $hopbw_kbps kbps link\"\n";
     print PLOTSCRIPT "set xlabel \"UDP Generation Rate (kbps)\"\n";
     print PLOTSCRIPT "set ylabel \"UDP Throughput at Iperf Server (kbps)\"\n";
