@@ -1,0 +1,1155 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN">
+
+<html>
+
+<head>
+
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+
+<title>Modelnet Howto</title>
+
+</head>
+
+<body>
+
+<a name="index"></a>
+<hr>
+
+[ <a href="#ch-validate">previous</a> ]
+[ <a href="#contents">Contents</a> ]
+[ <a href="#ch-intro">1</a> ]
+[ <a href="#ch-install">2</a> ]
+[ <a href="#ch-model">3</a> ]
+[ <a href="#ch-deploy">4</a> ]
+[ <a href="#ch-execute">5</a> ]
+[ <a href="#ch-validate">6</a> ]
+[ <a href="#ch-intro">next</a> ]
+
+<hr>
+
+<h1>
+Modelnet Howto
+<br></h1>
+
+<hr>
+
+<a name="copyright"></a>
+<h2>Copyright Notice</h2>
+
+<p>
+Copyright &copy; 2003 Duke University. All rights reserved. See COPYING for license statement.
+
+<p>
+Most files in this distribution are licensed under the terms of the GNU General
+Public License (GPL), see COPYING for the full license statement.
+
+<p>
+For the convenience of users who are porting OSes and applications to run as
+ModelNet edge nodes, certain files in this distribution are not subject to the
+GPL when distributed separately or included in software packages outside this
+distribution.  Instead we specify the more relaxed BSD-style license.  Affected
+files include the libipaddr in the tools directory.  In all such cases, license
+terms are stated at the top of the file.
+
+<hr>
+
+<a name="contents"></a>
+<h2>Contents</h2>
+
+<ul>
+<li><a href="#ch-intro">1 Modelnet Overview and Requirements</a></li>
+<ul>
+<li><a href="#s1.1">1.1 Overview</a></li>
+<li><a href="#s1.2">1.2 Cluster requirements</a></li>
+<li><a href="#s1.3">1.3 Downloads and Related Packages</a></li>
+</ul>
+<li><a href="#ch-install">2 Installing Modelnet</a></li>
+<ul>
+<li><a href="#s2.1">2.1 Binary packages</a></li>
+<li><a href="#s2.2">2.2 Building Modelnet from source</a></li>
+<li><a href="#s2.3">2.3 Installing Modelnet from source</a></li>
+<li><a href="#s-kernelbuild">2.4 Custom FreeBSD kernel</a></li>
+<li><a href="#s-build_gexec">2.5 Build and Install gexec</a></li>
+</ul>
+<li><a href="#ch-model">3 Generating a Model Network</a></li>
+<ul>
+<li><a href="#s3.1">3.1 Creating the graph and route files</a></li>
+<li><a href="#s3.2">3.2 Creating the machines and model files</a></li>
+</ul>
+<li><a href="#ch-deploy">4 Deploying a Model Network</a></li>
+<ul>
+<li><a href="#s4.1">4.1 Sudo support</a></li>
+<li><a href="#s4.2">4.2 Manual Deployment</a></li>
+<li><a href="#s-autodeploy">4.3 Automated Deployment</a></li>
+</ul>
+<li><a href="#ch-execute">5 Running experiments on a Model Network</a></li>
+<ul>
+<li><a href="#s-remote_execution">5.1 Running Programs on a Virtual Node</a></li>
+<li><a href="#s5.2">5.2 vnrun</a></li>
+<li><a href="#s-ipaddr">5.3 libipaddr</a></li>
+</ul>
+<li><a href="#ch-validate">6 Validating and Troubleshooting Modelnet</a></li>
+</ul>
+
+<a name="ch-intro"></a>
+<hr>
+
+[ <a href="#index">previous</a> ]
+[ <a href="#contents">Contents</a> ]
+[ 1 ]
+[ <a href="#ch-install">2</a> ]
+[ <a href="#ch-model">3</a> ]
+[ <a href="#ch-deploy">4</a> ]
+[ <a href="#ch-execute">5</a> ]
+[ <a href="#ch-validate">6</a> ]
+[ <a href="#ch-install">next</a> ]
+
+<hr>
+
+<h1>
+Modelnet Howto
+<br>Chapter 1 - Modelnet Overview and Requirements
+</h1>
+
+<hr>
+
+<p>
+<strong>Modelnet software and documentation are beta.</strong>
+
+<p>
+Modelnet <em>emulates</em> wide-area network conditions for testing distributed
+applications, such as peer to peer systems or content distribution networks,
+within a local area network.
+
+<p>
+This document explains how to:
+<ul>
+<li>
+Build and install Modelnet - <a href="#ch-install">Installing Modelnet, Chapter
+2</a>
+</li>
+</ul>
+<ul>
+<li>
+Create a <em>target</em> network topology to emulate - <a
+href="#ch-model">Generating a Model Network, Chapter 3</a>
+</li>
+</ul>
+<ul>
+<li>
+Deploy the topology on the host cluster - <a href="#ch-deploy">Deploying a
+Model Network, Chapter 4</a>
+</li>
+</ul>
+<ul>
+<li>
+Run an application across Modelnet - <a href="#ch-execute">Running experiments
+on a Model Network, Chapter 5</a>
+</li>
+</ul>
+
+<hr>
+
+<a name="s1.1"></a>
+<h2>1.1 Overview</h2>
+
+<p>
+Modelnet is designed to run on a machine room cluster to evaluate wide area
+distriubted systems.  One or more of the cluster machines is set aside for
+traffic emulation, while the remainder can be used to operate as nodes in the
+application.  When these node communicate with each other, those IP packets are
+sent through the emulators to create the illusion that application packets are
+crossing the wide area Internet.
+
+<p>
+To use Modelnet, a virtual network topology must first be created.  This
+virtual network is what the application traffic will experience.  The topology
+contains all the links and nodes of the virtual network and spedifies the link
+characteristics including bandwidth, queueing, propagation delay, and drop
+rate.  Modelnet includes tools to create these target topologies.
+
+<p>
+Modelnet emulates a target topology by forwarding all application packets to
+central network emulation machines.  Using the source and destination IP
+addresses, the emulators determine a path through the virtual topology and
+handle the packets according to that path.  Each hop on this path has certain
+bandwidth, queueing, propagation delay, and drop characteristics.  This
+hop-by-hop emulation subjects the IP traffic to realistic wide area effects
+including congestion.  The packet emulation work all occurs in real time with
+millisecond accuracy.
+
+<p>
+Application hosts are configured with IP aliases on a private subnet (typically
+the 10.0.0.0/8 network) dedicated to Modelnet emulation.  These end hosts send
+packets over the emulation subnet to the central emulation machines.
+Applications make their IP traffic go through Modelnet simply by using the IP
+addresses from the emulation subnet's address space.
+
+<p>
+For many distributed systems and virtual networks, a typical cluster machine
+has far more CPU power and network bandwidth than a single instance of the
+application requires.  Modelnet takes advantage of this by creating, possibly,
+hundreds of virtual nodes on each application host.  The application machines
+have an IP alias (from the emulation subnet) for each virtual node it hosts.
+Modelnet provides a dynamic library to force all application packets to go out
+to an emulator, even if they are addressed to another virtual node on that same
+host.  Modelnet includes tools to assist executing applications on large
+numbers of virtual nodes.
+
+<hr>
+
+<a name="s1.2"></a>
+<h2>1.2 Cluster requirements</h2>
+
+<p>
+A Modelnet cluster can be as small as two machines; one emulator running
+FreeBSD, and one machine hosting the virtual nodes.  We have successfully
+hosted virtual nodes on Linux, Xen-Linux, Solaris and FreeBSD.  The crucial
+feature required to host a virtual node is IP aliasing.  With IP aliases,
+entries can be added to the route table so the host properly handles Modelnet
+IP packets.
+
+<p>
+In practice, at Duke we use Linux Debian machines to host virtual nodes, and so
+this distribution has the most support for that system in terms of scripts and
+automation.  However we have also used ModelNet with Fedora Core 2
+distributions, and include notes on the proper packages for that installation.
+
+<p>
+A LAN with gigabit ethernet links to the emulators gets the best utilization.
+A gigahertz or faster CPU with a gigabit ethernet NIC on a 64/66MHz PCI slot is
+a good match to get the most traffic through each emulator.
+
+<hr>
+
+<a name="s1.3"></a>
+<h2>1.3 Downloads and Related Packages</h2>
+<ul>
+<li>
+<code><a href="http://issg.cs.duke.edu/modelnet">Modelnet</a></code> - the
+current release page for Modelnet.
+</li>
+</ul>
+<ul>
+<li>
+<code><a href="http://www.FreeBSD.org">FreeBSD</a></code> - the emulator nodes
+must run 4.5-RELEASE or newer 4.x kernel.  Also, for fine grain timing
+accuracy, a custom FreeBSD kernel is required to change the clock hertz to
+10KHz.  Here are the <code><a
+href="ftp://ftp.FreeBSD.org/pub/FreeBSD/ISO-IMAGES-i386/4.8">4.8 ISO
+images</a></code>.
+</li>
+</ul>
+<ul>
+<li>
+<code><a href="http://www.boost.org/libs/graph/doc">Boost Graph
+Library</a></code>
+</li>
+</ul>
+<ul>
+<li>
+<code><a href="http://xml.apache.org/xerces-c/">Xerces XML Parser</a></code>
+for C++.
+</li>
+</ul>
+<ul>
+<li>
+Perl modules
+<ul>
+<li>
+<code><a href="http://search.cpan.org/dist/Graph/">Graph 0.20105</a></code>
+</li>
+</ul>
+<ul>
+<li>
+<code><a href="http://search.cpan.org/author/JMM/Heap-0.50/">Heap</a></code>
+</li>
+</ul>
+<ul>
+<li>
+<code><a
+href="http://search.cpan.org/author/GRANTM/XML-Simple-2.07/lib/XML/Simple.pm">XML::Simple</a></code>
+</li>
+</ul>
+</li>
+</ul>
+
+<p>
+ModelNet requires version 0.2xxxx of the Perl Graph library.  See the CPAN site
+link in the previous section for downloading the right Graph package.  The
+system should be able to build the user-level tools against version 1_32 of the
+boost library on FreeBSD 4.10, Debian, and Redhat 9.0.
+
+<hr>
+
+<a name="s-fbsdprereq"></a>
+<h3>1.3.1 FreeBSD support</h3>
+
+<p>
+For FreeBSD hosts, the <code><a
+href="ftp://ftp5.freebsd.org/pub/FreeBSD/ports/packages/All">package ftp
+page</a></code> has the latest perl modules and gexec dependencies.  Set the
+<samp>PACKAGESITE</samp> environment variable to this URL (trailing / is
+significant)
+
+<pre>
+         ftp://ftp.freebsd.org/pub/FreeBSD/ports/packages/Latest/
+</pre>
+
+<p>
+To download,
+
+<pre>
+         pkg_add -r p5-XML-Simple linuxthreads libgnugetopt boost xerces-c2
+</pre>
+
+<p>
+You will need to install the p5-Graph (version 0.20105) package off of the CPAN
+web site.
+
+<hr>
+
+<a name="s1.3.2"></a>
+<h3>1.3.2 Debian support</h3>
+
+<p>
+For Debian hosts, the current testing release(sarge) has the boost and XML
+libraries.  apt-get these packages: <samp>libxerces23-dev libboost-graph-dev
+libxml-simple-perl libssl-dev</samp> For the woody(stable) version of Debian,
+libxerces21-dev is available via apt-get in the Modelnet debian download tree.
+
+<hr>
+
+<a name="s1.3.3"></a>
+<h3>1.3.3 Fedora Core 2 support</h3>
+
+<p>
+For Fedora hosts, you will need to install the following package versions:
+<samp>xerces-c-devel-2.5.0-1.n0i.1 openssl-0.9.7a-35 boost-devel-1.31.0-7
+perl-XML-Simple-2.12-1.1 perl-Graph-0.20105</samp>
+
+<p>
+Openssl, boost, perl-XML-Simple, can be found using yum.  However Xerces and
+Graph can be installed separately from these sites:
+<ul>
+<li>
+http://ftp.iasi.rdsnet.ro/mirrors/reb00t.com/fedora-2/RPMS
+</li>
+</ul>
+<ul>
+<li>
+http://rpmfind.net/linux/RPM/dag/fedora/1/i386/perl-Graph-0.20105-1.1.fc1.rf.noarch.html
+</li>
+</ul>
+
+<hr>
+
+<a name="s1.3.4"></a>
+<h3>1.3.4 gexec</h3>
+
+<p>
+For large scale remote root execution, Modelnet is designed to use gexec and
+sudo.  See <a href="#s-build_gexec">Build and Install gexec, Section 2.5</a>
+and <a href="#s-remote_execution">Running Programs on a Virtual Node, Section
+5.1</a>.
+<ul>
+<li>
+<code><a href="http://www.theether.org/gexec">gexec</a></code> | <code><a
+href="http://www.theether.org/authd">authd</a></code> | <code><a
+href="http://www.theether.org/libe">libe</a></code>
+</li>
+</ul>
+<ul>
+<li>
+<code><a href="http://issg.cs.duke.edu/modelnet/gexec-0.3.5-1">Modelnet gexec
+patch</a></code>
+</li>
+</ul>
+<ul>
+<li>
+<code><a href="http://www.openssl.org/">OpenSSL</a></code>
+</li>
+</ul>
+
+<a name="ch-install"></a>
+<hr>
+
+[ <a href="#ch-intro">previous</a> ]
+[ <a href="#contents">Contents</a> ]
+[ <a href="#ch-intro">1</a> ]
+[ 2 ]
+[ <a href="#ch-model">3</a> ]
+[ <a href="#ch-deploy">4</a> ]
+[ <a href="#ch-execute">5</a> ]
+[ <a href="#ch-validate">6</a> ]
+[ <a href="#ch-model">next</a> ]
+
+<hr>
+
+<h1>
+Modelnet Howto
+<br>Chapter 2 - Installing Modelnet
+</h1>
+
+<hr>
+
+<a name="s2.1"></a>
+<h2>2.1 Binary packages</h2>
+
+<p>
+Modelnet binary packages are available for Debian and FreeBSD systems.  For
+Debian woody (stable), add these lines to /etc/apt/sources.list:
+
+<pre>
+     deb http://issg.cs.duke.edu/modelnet/debian woody main
+     deb-src http://issg.cs.duke.edu/modelnet/debian woody main
+</pre>
+
+<p>
+For Debian sarge (testing), add these lines to /etc/apt/sources.list:
+
+<pre>
+     deb http://issg.cs.duke.edu/modelnet/debian sarge main
+     deb-src http://issg.cs.duke.edu/modelnet/debian sarge main
+</pre>
+
+<p>
+and install with <samp>apt-get</samp>:
+
+<pre>
+         apt-get install modelnet
+</pre>
+
+<p>
+This will pull in on the related libraries and perl modules from the regular
+Debian distribution sites.
+
+<p>
+For FreeBSD, a kernel modification is strongly recommended (see <a
+href="#s-kernelbuild">Custom FreeBSD kernel, Section 2.4</a>).  Also the
+prerequistie packages must be downloaded first (see <a
+href="#s-fbsdprereq">FreeBSD support, Section 1.3.1</a>).  To download the
+Modelnet package set the <samp>PACKAGESITE</samp> environment variable to this
+URL (trailing / is significant)
+
+<pre>
+         ftp://ftp.cs.duke.edu/pub/modelnet/FreeBSD/
+</pre>
+
+<p>
+To download,
+
+<pre>
+     pkg_add -r authd gexec modelnet
+</pre>
+
+<hr>
+
+<a name="s2.2"></a>
+<h2>2.2 Building Modelnet from source</h2>
+
+<p>
+Unpack the distribution with tar -
+
+<pre>
+     	tar xfz modelnet-0.0.tar.gz
+</pre>
+
+<p>
+On Linux and FreeBSD, configure and build in your OS-specific object
+directories -
+
+<pre>
+     	cd modelnet-0.0
+</pre>
+
+<p>
+For Linux:
+
+<pre>
+     	mkdir linux
+     	cd linux
+     	../configure
+     	gmake
+</pre>
+
+<p>
+On FreeBSD, the <samp>modelnet.ko</samp> module is already built and included
+in the distribution file.  However if you do want to build the kernel module
+from source then you need to tell configure where your kernel sources are.  If
+you want to use the included .ko, just run configure with no options.
+
+<pre>
+     	mkdir freebsd
+     	cd freebsd
+     	../configure --with-fbsdsys=/freebsd/4.XX/src/sys/
+     	gmake
+</pre>
+
+<hr>
+
+<a name="s2.3"></a>
+<h2>2.3 Installing Modelnet from source</h2>
+
+<p>
+Since modelnet has components that need to execute on several different OSs,
+its easiest to install to a local disk.  The default prefix set by configure is
+/usr/local, so this would happen by default.  An alternative is to configure
+with a prefix in nfs space.  Either way, the prefixes must be consistent across
+all the hosts for the remote execution scripts to operate successfully.
+
+<pre>
+     	gmake install
+</pre>
+
+<hr>
+
+<a name="s-kernelbuild"></a>
+<h2>2.4 Custom FreeBSD kernel</h2>
+
+<p>
+For the best fidelity in the emulated network links, the FreeBSD kernel on the
+emulators needs the clock rate set to 10000 Hertz.  In FreeBSD, the HZ
+parameter is a config time parameter so you have to build a kernel to change it
+from the default of 100Hz.
+
+<p>
+See the <code><a
+href="http://www.FreeBSD.org/doc/en_US.ISO8859-1/books/handbook/kernelconfig.html">FreeBSD
+Handbook</a></code> chapter on configuring kernels for full details of
+configuring, building and installing a FreeBSD kernel.
+
+<p>
+To set HZ, add a line to the conf file in <samp>sys/i386/conf</samp> that says
+
+<pre>
+     options HZ=10000
+</pre>
+
+<p>
+Briefly, to build a kernel run <samp>config</samp><em>conf_file</em>in the conf
+dir, then <samp>make</samp> in the sys/compile dir for that configure, and
+finally copy <samp>kernel</samp> to <samp>/</samp> and reboot.
+
+<hr>
+
+<a name="s-build_gexec"></a>
+<h2>2.5 Build and Install gexec</h2>
+
+<p>
+Unpack gexec and patch it.  The Modelnet patch allows the gexec system to on
+FreeBSD hosts.
+
+<pre>
+       tar xfz libe-0.2.2.tar.gz 
+       tar xfz authd-0.2.1.tar.gz 
+       tar xfz gexec-0.3.5.tar.gz 
+       patch -p0 &lt; modelnet.patch
+</pre>
+
+<p>
+libe needs to be built both on a linux host and freebsd host and installed only
+on the build hosts.
+
+<pre>
+       cd libe-0.2.2
+       mkdir linux
+       cd linux
+       ../configure
+       make
+       make install
+</pre>
+
+<p>
+authd needs to be built and configure both on a linux host and a freebsd host.
+It needs to be configured and run on all hosts in the emulation cluster.
+
+<pre>
+       cd authd-0.2.1
+       mkdir linux
+       cd linux
+       ../configure
+       make
+       make install
+</pre>
+
+<p>
+Create and distribute a cluster key pair as describe on the <code><a
+href="http://www.theether.org/authd/">authd page</a></code>.  Then authd can be
+started on all nodes.  It is meant to be run at boottime and includes a redhat
+style startup script that goes in /etc/init.d.
+
+<p>
+gexecd needs to be built both on a linux host and a freebsd host.  It needs to
+be run on all hosts in the emulation cluster.  gexecd can be started from inetd
+or run stand-alone at startup.
+
+<pre>
+       cd gexec-0.3.5
+       mkdir linux
+       cd linux
+       ../configure
+       make
+       make install
+</pre>
+
+<p>
+The <samp>deploy</samp> command (<a href="#s-autodeploy">Automated Deployment,
+Section 4.3</a>) relies on all hosts in the cluster running gexecd and authd.
+
+<a name="ch-model"></a>
+<hr>
+
+[ <a href="#ch-install">previous</a> ]
+[ <a href="#contents">Contents</a> ]
+[ <a href="#ch-intro">1</a> ]
+[ <a href="#ch-install">2</a> ]
+[ 3 ]
+[ <a href="#ch-deploy">4</a> ]
+[ <a href="#ch-execute">5</a> ]
+[ <a href="#ch-validate">6</a> ]
+[ <a href="#ch-deploy">next</a> ]
+
+<hr>
+
+<h1>
+Modelnet Howto
+<br>Chapter 3 - Generating a Model Network
+</h1>
+
+<hr>
+
+<p>
+To run a modelnet network, you must create several XML files:
+<ul>
+<li>
+graph - lists the nodes and links of the virtual network
+</li>
+</ul>
+<ul>
+<li>
+route - contains route data for paths through the virtual network
+</li>
+</ul>
+<ul>
+<li>
+machines - lists the machines that can be emulators or host virtual nodes.
+</li>
+</ul>
+<ul>
+<li>
+model - matches nodes and links to host machines and emulator machines
+</li>
+</ul>
+
+<p>
+Modelnet operation requires the route and model file.  The graph and machines
+files are used to create the route and model files.  Perl tools are included to
+create these files, and these tools can be modified to suite particular
+objectives.
+
+<hr>
+
+<a name="s3.1"></a>
+<h2>3.1 Creating the graph and route files</h2>
+
+<p>
+The first step to using Modelnet is to create a target network topology to
+emulate.  The topology can be created by generation tools, such as <code><a
+href="http://topology.eecs.umich.edu/inet/">Inet</a></code>, <code><a
+href="http://cs-www.bu.edu/faculty/matta/Research/BRITE">BRITE</a></code>, or
+<code><a href="http://www.cc.gatech.edu/projects/gtitm">GT-ITM</a></code>, or
+from actual network measurements, such as the <code><a
+href="http://nms.lcs.mit.edu/ron/data/">RON data</a></code> from MIT.  The
+current version of Modelnet directly supports the Inet tool.  Many situations
+call for custom topologies.  In that case, the perl tools can be modified to
+generate a graph file according to whatever virtual network topology is
+required.
+
+<hr>
+
+<a name="s3.1.1"></a>
+<h3>3.1.1 Using inet2xml to generate graph file</h3>
+
+<p>
+Modelnet includes a perl tool to convert Inet output to a graph file, and set
+the link parameters for all the edges in the virtual network topology.  This
+example creates a network of 4000 nodes plus 100 clients attached among 25
+stubs spread throughout the toplogy.  The links will be given default
+characteristics.
+
+<pre>
+     	inet -n 4000 | inet2xml -p 100 among 25 stubs &gt; example.graph
+</pre>
+
+<p>
+<samp>inet2xml</samp> can assign values for bandwidth, latency, and drop rate,
+for four type of links (GT-ITM style link names): 'client-stub', 'stub-stub',
+'stub-transit', 'transit-transit'.  Link paramter definitions:
+<ul>
+<li>
+bandwidth - kilobits per second
+</li>
+</ul>
+<ul>
+<li>
+latency - milliseconds of delay per packet.  Can be infered from length of link
+in those topologies that specify node coordinates.
+</li>
+</ul>
+<ul>
+<li>
+drop rate - fraction of packets that are dropped.  Does not include those
+dropped due to queue overflows.
+</li>
+</ul>
+
+<p>
+Node type definitions:
+<ul>
+<li>
+transit node - node in the virtual network topology corresponding to a router
+in the wide area internet.
+</li>
+</ul>
+<ul>
+<li>
+stub node - a gateway for client nodes to the access the network
+</li>
+</ul>
+<ul>
+<li>
+client node - edge node in the virtual network corresponding to an computer
+attached to the wide area internet
+</li>
+</ul>
+<ul>
+<li>
+virtual node - sysnonymous with client node.  Each VN is assigned an IP address
+in the modeled network.  Modelnet emulates the end-to-end traffic between VNs.
+</li>
+</ul>
+
+<p>
+Link type definitions:
+<ul>
+<li>
+client-stub - connects a virtual node to an interior node at the edge of the
+virtual network.  Corresponds to a link from a computer to a gateway router.
+</li>
+</ul>
+<ul>
+<li>
+stub-stub - connects two nodes at the edge of the virtual network
+</li>
+</ul>
+<ul>
+<li>
+stub-transit - connects a stub node to transit node.  Correspond to a link from
+a site (an AS) to a backbone network.
+</li>
+</ul>
+<ul>
+<li>
+transit-transit - corresponds to links within or between backbone networks.
+</li>
+</ul>
+
+<p>
+With <samp>inet2xml</samp>, you can specify all the link parameters for all the
+links types, or give a min-max range where inet2xml randomly picks a value.
+
+<pre>
+     usage: inet2xml [-l] [-q qcnt] -p &lt;vncnt&gt; among &lt;stubcnt&gt; stubs 
+     		[&lt;link type&gt; &lt;kbps bw&gt; &lt;ms delay&gt; &lt;drop fraction&gt;]+ | 
+     		[min-&lt;link type&gt; &lt;kbps bw&gt; &lt;ms delay&gt; &lt;drop fraction&gt;
+     		 max-&lt;link type&gt; &lt;kbps bw&gt; &lt;ms delay&gt; &lt;drop fraction&gt;]
+     	-l    Set delay based on link lengths derived from inet node location
+     	-q qcnt
+     	      Queue length for on all links. Default is  10
+     	-p &lt;vncnt&gt; among &lt;stubcnt&gt; stubs 
+     	      Create &lt;vncnt&gt; virtual nodes spread among &lt;stubcnt&gt; stubs
+     	&lt;link type&gt;
+     	      Types can be: client-stub stub-stub stub-transit transit-transit
+     	&lt;kbps bw&gt;
+     	      integer kilobits per second
+     	&lt;ms delay&gt;
+     	      integer milliseconds of link latency
+     	&lt;drop fraction&gt;
+     	      real value from fraction of packets dropped
+</pre>
+
+<hr>
+
+<a name="s3.1.2"></a>
+<h3>3.1.2 XML graph file format</h3>
+
+<p>
+The graph file has 3 subsections: vertices, edges and specs.  For this example,
+take a simple graph that has one link connecting two nodes, then attach one
+client node to one node and two clients to the other node.  This graph then has
+two stub nodes, three clients nodes, and 8 uni-directional edges connecting
+them.  The resulting XML graph file is:
+
+<pre>
+     
+     &lt;?xml version=&quot;1.0&quot; encoding=&quot;ISO-8859-1&quot;?&gt;
+     &lt;topology&gt;
+       &lt;vertices&gt;
+         &lt;vertex int_idx=&quot;0&quot; role=&quot;gateway&quot; /&gt;
+         &lt;vertex int_idx=&quot;1&quot; role=&quot;gateway&quot; /&gt;
+         &lt;vertex int_idx=&quot;2&quot; role=&quot;virtnode&quot; int_vn=&quot;0&quot; /&gt;
+         &lt;vertex int_idx=&quot;3&quot; role=&quot;virtnode&quot; int_vn=&quot;1&quot; /&gt;
+         &lt;vertex int_idx=&quot;4&quot; role=&quot;virtnode&quot; int_vn=&quot;2&quot; /&gt;
+       &lt;/vertices&gt;
+       &lt;edges&gt;
+         &lt;edge int_dst=&quot;1&quot; int_src=&quot;2&quot; int_idx=&quot;0&quot; specs=&quot;client-stub&quot; int_delayms=&quot;1&quot; /&gt;
+         &lt;edge int_dst=&quot;2&quot; int_src=&quot;1&quot; int_idx=&quot;1&quot; specs=&quot;client-stub&quot; dbl_kbps=&quot;768&quot; /&gt;
+         &lt;edge int_dst=&quot;1&quot; int_src=&quot;3&quot; int_idx=&quot;2&quot; specs=&quot;client-stub&quot; /&gt;
+         &lt;edge int_dst=&quot;3&quot; int_src=&quot;1&quot; int_idx=&quot;3&quot; specs=&quot;client-stub&quot; /&gt;
+         &lt;edge int_dst=&quot;0&quot; int_src=&quot;4&quot; int_idx=&quot;4&quot; specs=&quot;client-stub&quot; /&gt;
+         &lt;edge int_dst=&quot;4&quot; int_src=&quot;0&quot; int_idx=&quot;5&quot; specs=&quot;client-stub&quot; /&gt;
+         &lt;edge int_dst=&quot;1&quot; dbl_len=&quot;1&quot; int_src=&quot;0&quot; int_idx=&quot;0&quot; specs=&quot;stub-stub&quot; /&gt;
+         &lt;edge int_dst=&quot;0&quot; dbl_len=&quot;1&quot; int_src=&quot;1&quot; int_idx=&quot;1&quot; specs=&quot;stub-stub&quot; /&gt;
+       &lt;/edges&gt;
+       &lt;specs &gt;
+         &lt;client-stub dbl_plr=&quot;0&quot; dbl_kbps=&quot;64&quot; int_delayms=&quot;100&quot; int_qlen=&quot;10&quot; /&gt;
+         &lt;stub-stub dbl_plr=&quot;0&quot; dbl_kbps=&quot;1000&quot; int_delayms=&quot;20&quot; int_qlen=&quot;10&quot; /&gt;
+       &lt;/specs&gt;
+     &lt;/topology&gt;
+</pre>
+
+<p>
+The <samp>&lt;specs&gt;</samp> section of each <samp>&lt;edge&gt;</samp> can be
+overridden on a per-edge basis.  Any link parameter expressly stated as an
+<samp>&lt;edge&gt;</samp> attribute overrides the value in the associated
+<samp>&lt;specs&gt;</samp>.  For example, edge 0 overrides the delay to be 1ms
+and edge 1 overrides the bandwidth to be 768 Kbit/s.
+
+<hr>
+
+<a name="s3.1.3"></a>
+<h3>3.1.3 Creating the route file from the graph file</h3>
+
+<p>
+The route file store the shortest paths across the virtual network for all
+pairs of virtual nodes.
+
+<pre>
+     allpairs example.graph &gt; example.route
+</pre>
+
+<hr>
+
+<a name="s3.2"></a>
+<h2>3.2 Creating the machines and model files</h2>
+
+<p>
+The machines file is written by hand to list the machines available to be
+emulators or host virtual nodes.  This example is for cluster of 3 machines
+name larry, curly and moe and designates them as an emulator and two hosts.
+
+<pre>
+     	&lt;?xml version=&quot;1.0&quot; encoding=&quot;ISO-8859-1&quot;?&gt;
+     	&lt;hardware&gt;
+     		&lt;emul hostname=&quot;larry&quot;/&gt;
+     		&lt;host hostname=&quot;curly&quot;/&gt;
+     		&lt;host hostname=&quot;moe&quot;/&gt;
+     	&lt;/hardware&gt;
+</pre>
+
+<p>
+The model file is create by the mkmodel perl script.  mkmodel assigns the
+virtual nodes to hosts, and assigns links to emulators.
+
+<pre>
+     mkmodel example.graph example.machines &gt; example.model
+</pre>
+
+<a name="ch-deploy"></a>
+<hr>
+
+[ <a href="#ch-model">previous</a> ]
+[ <a href="#contents">Contents</a> ]
+[ <a href="#ch-intro">1</a> ]
+[ <a href="#ch-install">2</a> ]
+[ <a href="#ch-model">3</a> ]
+[ 4 ]
+[ <a href="#ch-execute">5</a> ]
+[ <a href="#ch-validate">6</a> ]
+[ <a href="#ch-execute">next</a> ]
+
+<hr>
+
+<h1>
+Modelnet Howto
+<br>Chapter 4 - Deploying a Model Network
+</h1>
+
+<hr>
+
+<p>
+Once the model and route files are created, the emulation cluster can be
+configured to be the virtual network.  Root access on all machines is required
+for this operation.  With a handful of machines, it is feasible to manually
+setup Modelnet.
+
+<p>
+Modelnet requires all machines in the emulation cluster have the <code><a
+href="http://search.cpan.org/author/GRANTM/XML-Simple-2.07/lib/XML/Simple.pm">XML::Simple</a></code>
+perl module installed.
+
+<hr>
+
+<a name="s4.1"></a>
+<h2>4.1 Sudo support</h2>
+
+<p>
+Root access is required to deploy a network topology.  Using sudo, this access
+can be fine tuned and password-free.  The deploy scripts assume sudo is
+configured on each machine used for Modelnet.
+
+<p>
+For controlled access, the /etc/sudoers (or /usr/local/etc/sudoers on FreeBSD)
+can specify the Modelnet commands.  Add these lines to sudoers, for
+password-free access:
+
+<pre>
+         Host_Alias      MODELHOSTS = larry moe curly
+         User_Alias      MODELERS =  login names go here  
+         Cmnd_Alias MODELCMDS = /sbin/ifconfig, /sbin/route, \
+                 /sbin/kldload, /sbin/kldunload, /sbin/ipfw, /sbin/sysctl, \
+     	    /usr/local/bin/modelload, /usr/local/bin/ipfwload
+         MODELERS MODELHOSTS = NOPASSWD: MODELCMDS
+</pre>
+
+<p>
+To test your sudo access, do <samp>sudo -l</samp>
+
+<hr>
+
+<a name="s4.2"></a>
+<h2>4.2 Manual Deployment</h2>
+
+<p>
+Modelnet can be deployed by logging in to each host, and running the
+<samp>deployhost</samp> command.  This commond configures all the virtual IP
+addresses, routes, and loads the topology into the emulator.
+
+<pre>
+         deployhost example.model example.route
+</pre>
+
+<p>
+Once <samp>deployhost</samp> has run on every machine in the hosts file, the
+system is ready to emulate the virtual network.
+
+<hr>
+
+<a name="s-autodeploy"></a>
+<h2>4.3 Automated Deployment</h2>
+
+<p>
+For large emulations, deployment can be automated as a a single command when
+gexec remote access to the cluster is available.  See <a
+href="#s-build_gexec">Build and Install gexec, Section 2.5</a>.
+
+<pre>
+         deploy example.model example.route
+</pre>
+
+<p>
+The <samp>deploy</samp> can be run on any node in the <samp>gexec</samp>
+cluster.
+
+<a name="ch-execute"></a>
+<hr>
+
+[ <a href="#ch-deploy">previous</a> ]
+[ <a href="#contents">Contents</a> ]
+[ <a href="#ch-intro">1</a> ]
+[ <a href="#ch-install">2</a> ]
+[ <a href="#ch-model">3</a> ]
+[ <a href="#ch-deploy">4</a> ]
+[ 5 ]
+[ <a href="#ch-validate">6</a> ]
+[ <a href="#ch-validate">next</a> ]
+
+<hr>
+
+<h1>
+Modelnet Howto
+<br>Chapter 5 - Running experiments on a Model Network
+</h1>
+
+<hr>
+
+<a name="s-remote_execution"></a>
+<h2>5.1 Running Programs on a Virtual Node</h2>
+
+<p>
+Once a network topology is deployed onto the emulation hardware, the system is
+live and it can test a distributed application.  All packets an edge node
+transmits with a source and destination IP in the 10.0.0.0/8 network will be
+sent its emulator.  This requires that the src and dst IP be set correctly.
+Modelnet provides <samp>libipaddr</samp> to control the IP addresses
+applications use.
+
+<hr>
+
+<a name="s5.2"></a>
+<h2>5.2 vnrun</h2>
+
+<p>
+<samp>vnrun</samp> will execute a program on a virtual node, or on all virtual
+nodes.  It creates an environment that make sure the source address is set
+correctly for any internet sockets.  The example runs the date program on all
+virtual nodes listed in example.model.
+
+<pre>
+         vnrun all example.model gnutella
+</pre>
+
+<p>
+A copy of <samp>gnutella</samp> is run on every virtual node.  If the
+<samp>gnutella</samp> program opens a socket, the IP source address will be set
+according the virtual running that instance of gnutella.
+
+<p>
+<samp>vnrun</samp> can also start a single instance of an application if a
+virtuan node number is given instead of &quot;all&quot;.
+
+<pre>
+     	usage: vnrun [-d] &lt; VN# | all &gt; &lt;file.model&gt; &lt;command&gt;
+</pre>
+
+<hr>
+
+<a name="s-ipaddr"></a>
+<h2>5.3 libipaddr</h2>
+
+<p>
+<strong>libipaddr has only been tested on linux glibc-2.2.5</strong>
+
+<p>
+<samp>vnrun</samp> uses <samp>libipaddr</samp> to make applications use the
+correct IP addresses.  <samp>libipaddr</samp> is a shared library so it
+requires that applications are dynamically linked executables.  For Unix
+systems, it relies on the <samp>LD_PRELOAD</samp> of <samp>ld.so</samp> to
+interpose its own version of socket related system calls.  Typical applications
+do not explicitly set the source IP address.  The libipaddr versions of
+<code>bind(2)</code>, <code>sendto(2)</code> and other syscalls explicitly set
+the source and destination IP addresses.
+
+<p>
+The <samp>libipaddr</samp> does not work with static binaries or with RAW
+sockets.  In particular, <em>ping</em> uses RAW sockets and therefore cannot
+have its addresses manipulated by <samp>libipaddr</samp>.  Test connections
+with netperf or some other higher level application than <code>ping(8)</code>.
+
+<p>
+<samp>libipaddr</samp> sets the source address to be the address in the
+environment variable SRCIP.  Using sh syntax:
+
+<pre>
+     	$ LD_PRELOAD=prefix/lib/libipaddr.so SRCIP=10.0.0.1 netperf -H 10.0.1.1
+</pre>
+
+<p>
+The <samp>netperf</samp> packets transmitted with have a source IP of 10.0.0.1.
+Server processes, eg.  <samp>netserver</samp>, address return packets simply by
+swapping the source and destination addresses.  This means pure server
+processes do not need the libipaddr system calls.
+
+<p>
+Packets being sent between two virtual nodes on the same edge node must be
+prevented from going through the loopback interface.  This is why the
+destination IP address is also set by <samp>libipaddr</samp>.  This forces
+packets to actually go to the emulator when the destination virtual node
+happens to reside on the same host as source virtual node.  This is done by
+turning on bit 23 of the destination address.  Since the 10.128.0.0/24 subnet
+does not reside on the host with the 10.0.0.0/24 net, it will send the packet
+to the emulator all other packets for 10.0.0.0/8.  In this example, even though
+10.0.0.1 and 10.0.0.2 are on the same host, the netperf packets in both
+directions will go through the emulator
+
+<pre>
+     	$ LD_PRELOAD=prefix/lib/libipaddr.so SRCIP=10.0.0.1 netperf -H 10.0.0.2
+</pre>
+
+<p>
+The emulator turn off bit 23 of the destination IP.  If 23 was set, it will
+turn it on in the source IP address before delivering the packet to the edge
+node with the destination virtual node.  This is so servers will automatically
+send replies with bit 23 set.  So again, pure servers do not need
+<samp>libipaddr</samp> PRELOAD-ed.  This feature is the default behavior of
+<samp>libipaddr</samp>.  To disable this feature, define the environment
+variable <samp>KEEP_DSTIP</samp>.
+
+<a name="ch-validate"></a>
+<hr>
+
+[ <a href="#ch-execute">previous</a> ]
+[ <a href="#contents">Contents</a> ]
+[ <a href="#ch-intro">1</a> ]
+[ <a href="#ch-install">2</a> ]
+[ <a href="#ch-model">3</a> ]
+[ <a href="#ch-deploy">4</a> ]
+[ <a href="#ch-execute">5</a> ]
+[ 6 ]
+[ <a href="#index">next</a> ]
+
+<hr>
+
+<h1>
+Modelnet Howto
+<br>Chapter 6 - Validating and Troubleshooting Modelnet
+</h1>
+
+<hr>
+
+<p>
+The configuration for Modelnet itself, and the experimental distributed
+applications that use it, are complex systems that must be validated to confirm
+it is all working as expected.
+
+<p>
+<code><a href="http://www.netperf.org/">netperf</a></code> is the handiest tool
+to validate link performance.  Use it with libipaddr (<a
+href="#s-ipaddr">libipaddr, Section 5.3</a>)to confirm link bandwidth of the
+virtual topology with both TCP and UDP packets.
+
+<p>
+Check mbuf limits, <samp>netstat -m</samp>, on forwarders.  Check <samp>systat
+-ip</samp>, on forwarders for packet throughput.
+
+<hr>
+
+[ <a href="#ch-validate">previous</a> ]
+[ <a href="#contents">Contents</a> ]
+[ <a href="#ch-intro">1</a> ]
+[ <a href="#ch-install">2</a> ]
+[ <a href="#ch-model">3</a> ]
+[ <a href="#ch-deploy">4</a> ]
+[ <a href="#ch-execute">5</a> ]
+[ <a href="#ch-validate">6</a> ]
+[ <a href="#ch-intro">next</a> ]
+
+<hr>
+
+<p>
+Modelnet Howto
+
+<address>
+version 0.99<br>
+<br>
+David Becker and Ken Yocum <code><a href="mailto:(becker,grant)@cs.duke.edu">(becker,grant)@cs.duke.edu</a></code><br>
+<br>
+</address>
+
+<hr>
+
+</body>
+
+</html>
+

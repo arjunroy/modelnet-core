@@ -1,0 +1,9 @@
+Fri Jun 20 09:03:12 EDT 2003
+    - fixed error reporting in deployhost
+    - fixed hop numbering in inet2xml
+    - fixed hop length -l operation in inet2xml
+    - updated examples for correct hop numbers
+    - added modelstat to dist lists
+    - revise license in COPYING doc/howot-en/titletoc.sgml debian/copyright
+    - update verion to 0.91 in configure.ac doc/howto-en/titletoc.sgml
+

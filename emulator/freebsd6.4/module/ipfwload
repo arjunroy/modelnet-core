@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+#
+
+/sbin/kldload ipfw
+# if ipfw is built into the kernel, let's flush all the state
+/sbin/ipfw -f flush
+/sbin/ipfw add 65000 allow ip from any to any

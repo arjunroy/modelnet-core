@@ -1,0 +1,167 @@
+#!/usr/bin/perl
+#
+# modelnet  modelload
+#      Use sysctl to download network model to modelnet module
+#
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+#
+
+use strict;
+use IO::File;
+use XML::Simple;
+
+my ($prefix,$prog) = $0 =~ m,(.*)/(.*),;
+
+if ($#ARGV != 1) {
+	print "usage: $prog <file.model> <file.route>\n";
+	exit 1;
+	}
+
+my ($modelfile,$routefile) = @ARGV;
+die "$prog: $modelfile: $!\n" unless -r $modelfile;
+die "$prog: $routefile: $!\n" unless -r $routefile;
+
+testsysctl("net.inet.ip.modelnet.nodecount") &&
+	die "$prog: modelnet module not detected on ",qx(hostname);
+
+my $modelxml = &XMLin($modelfile,forcearray => ["emul","host","virtnode","subnet"], keeproot=>1);
+
+die "No <model> xml tag in $modelfile" unless exists $modelxml->{model};
+
+# my $routexml = &XMLin($routefile, keeproot=>1);
+
+
+my $hops = $modelxml->{model}->{hops}->{hop};
+my $specs = $modelxml->{model}->{specs};
+
+my @fwds;
+my @virtnodes;
+foreach my $fwd (@{$modelxml->{model}->{emulators}->{emul}}) {
+    $fwds[$fwd->{int_idx}] = $fwd;
+    foreach my $host (@{$fwd->{host}}) {
+        foreach my $subnet (@{$host->{subnet}}) {
+	    foreach my $virtnode (@{$subnet->{virtnode}}) {
+		@virtnodes[$virtnode->{int_vn}] = $virtnode;
+		}
+	    }
+        }
+    }
+
+&loadhoptable($hops,$specs,\@fwds);
+&loadpathtable($routefile,\@virtnodes);
+
+exit 0;
+
+########################
+
+sub loadpathtable {
+	my ($pathfile, $virtnodes) = @_;
+
+	my @nodetable = (-1) x 0x10000;
+	foreach my $vn (@$virtnodes) {
+		my @octets = split /\./,$vn->{vip};
+		my $ip = ($octets[2]<<8)+$octets[3];
+		$nodetable[$ip] = $vn->{int_vn};
+		}
+
+	my $newbuf = pack("L" x @nodetable, @nodetable);
+	my $oldbuf = sysctl("net.inet.ip.modelnet.nodetable",$newbuf);
+
+	$newbuf =  pack("L",scalar @$virtnodes);
+	$oldbuf = sysctl("net.inet.ip.modelnet.nodecount",$newbuf);
+
+	my $paths = new IO::File $pathfile;
+	while(<$paths>) {
+		next unless /int_vndst/;
+		my ($vndst) = /int_vndst="(\d+)"/;
+
+		my ($vnsrc) = /int_vnsrc="(\d+)"/;
+		my ($hopstring) = /hops="(.+)"/;
+
+		my @hops = split ' ',$hopstring;
+
+		my $pathbuf = pack("L" x @hops, @hops);
+		my $entry = pack("LLpL", $vnsrc, $vndst,
+			$pathbuf, (length $pathbuf)/4);
+#print " $vnsrc, $vndst, @hops, ",(length $pathbuf)/4,"\n";
+		sysctl("net.inet.ip.modelnet.pathentry",$entry);
+		}
+}
+
+sub loadhoptable {
+	my ($hops,$specs,$fwds) = @_;
+
+	my @hoptable;
+	my $fields = 6;
+
+	my $hostname = `hostname`;
+	chomp $hostname;
+	my %ipaddr;
+	$ipaddr{$hostname} = unpack("L",gethostbyname($hostname));
+	$ipaddr{''} = 0;
+
+	foreach my $hop (@$hops) {
+		foreach my $parm (keys %{$specs->{$hop->{specs}}}) {
+			$hop->{$parm} = $specs->{$hop->{specs}}->{$parm}
+				unless exists $hop->{$parm};
+			}
+
+		my $owner = $fwds[$hop->{int_emul}]->{hostname};
+
+		$ipaddr{$owner} = unpack("L",gethostbyname($owner))
+			unless (exists $ipaddr{$owner}) ;
+		$owner = $ipaddr{$owner};
+		$owner=0 if $ipaddr{$hostname} eq $owner;
+			
+		# Kevin
+    		$owner = 0;
+
+		if (!(exists $hop->{int_xtq})){
+		    $hop->{int_xtq} = 0; # 0 = no XTQ! 
+		}
+
+		@hoptable[$hop->{int_idx}*$fields..((1+$hop->{int_idx})*$fields)-1] =
+			(int $hop->{dbl_kbps},
+			 $hop->{int_delayms},
+			 int(0x7fffffff* $hop->{dbl_plr}),
+			 $hop->{int_qlen},
+			 $owner,
+			 $hop->{int_xtq});
+		}
+	my $hopbuf = pack("L" x @hoptable, @hoptable);
+
+	my $hopdesc = pack("pL",$hopbuf, (length $hopbuf)/(4*$fields));
+	my $olddesc = sysctl("net.inet.ip.modelnet.hoptable",$hopdesc);
+print "loaded ", 1+(length $hopbuf)/(4*$fields), " hops\n";
+}
+
+sub sysctl_syscall { syscall(202, @_) }
+
+sub testsysctl {
+	my ($name) = @_;
+
+	my $mib = pack("LL", 0, 3); # Undocumented
+	my $oid = 0 x 56;
+	my $oid_len = pack("L", length $oid);
+	&sysctl_syscall($mib, ((length $mib)/4), $oid, $oid_len,
+		$name, length $name);
+}
+
+sub sysctl {
+	my ($name,$newbuf) = @_;
+
+	my $mib = pack("LL", 0, 3); # Undocumented
+	my $oid = 0 x 56;
+	my $oid_len = pack("L", length $oid);
+	&sysctl_syscall($mib, ((length $mib)/4), $oid, $oid_len,
+		$name, length $name) && die "Sysctl $name mib failed ($!)\n";
+	my $buflen = pack("L",1);
+	&sysctl_syscall($oid, unpack("L",$oid_len)/4, 0, $buflen, 0, 0)
+		&& die "Sysctl $name length probe failed ($!)\n";
+	my $oldbuf = 0 x unpack("L",$buflen);
+	&sysctl_syscall($oid, unpack("L",$oid_len)/4, $oldbuf, $buflen,
+		$newbuf?$newbuf:0, length $newbuf)
+		&& die "Sysctl $name failed ($!)\n";
+	$oldbuf;
+}

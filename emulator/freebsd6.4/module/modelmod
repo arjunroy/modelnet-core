@@ -1,0 +1,90 @@
+#!/usr/bin/perl
+#
+# modelnet  modelmod
+#      Use sysctl to download individual hops
+#
+#      usage: modelmod model.hop 
+#
+# author David Becker 
+#
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+#
+
+use strict;
+use IO::File;
+
+die "usage: $0 model.hop\n"
+	if ($#ARGV != 0) ;
+
+my ($filename) = @ARGV;
+
+	my $fh  = new IO::File "$filename" or die "open: $filename $!" ;
+	my @hoptable;
+	my $fields = 5;
+	my $hostname = `hostname`;
+	chomp $hostname;
+	my %ipaddr;
+	$ipaddr{$hostname} = unpack("L",gethostbyname($hostname));
+	$ipaddr{''} = 0;
+
+print "reading $filename\n";
+	while(<$fh>) {
+		s/#.*//;
+		next unless /\S/;
+
+		my ($pipeid) = /config\s+(\d+)/;
+		my ($bw) = /bw\s+(\S+)/;
+		my ($delay) = /delay\s+(\d+)/;
+		my ($plr) = /plr\s+(\d*\.\d*)/;
+		my ($slots) = /queue\s+(\d+)/;
+		my ($owner) = /owner\s+(\S+)/;
+
+		$bw = 0 unless $bw;
+		$delay = 0 unless $delay;
+		$plr = 0 unless $plr;
+		$slots = 10 unless $slots;
+		$owner = 0 unless $owner;
+
+		$bw =~ s/(\D+)//;
+		my $bwunit = $1;
+		$bw <<= 3 if $bwunit =~ /B/;
+		$bw *= 1000 if ($bwunit =~ /[kK]/);
+		$bw *= 1000000 if ($bwunit =~ /[mM]/);
+
+		$ipaddr{$owner} = unpack("L",gethostbyname($owner))
+			unless (exists $ipaddr{$owner}) ;
+		$owner = $ipaddr{$owner};
+		$owner=0 if $ipaddr{$hostname} eq $owner;
+
+		$delay =~ s/(\D*)//;
+		my $delayunit = $1;
+		print "Bad delay unit\n" if $delayunit and $delayunit ne "ms";
+
+		$plr = int(0x7fffffff*$plr);
+
+	my $hopbuf = pack("L6", $pipeid,$bw,$delay,$plr,$slots,$owner);
+
+	my $olddesc = sysctl("net.inet.ip.modelnet.hopmod",$hopbuf);
+	}
+exit 0;
+
+sub sysctl_syscall { syscall(202, @_) }
+
+sub sysctl {
+	my ($name,$newbuf) = @_;
+
+	my $mib = pack("LL", 0, 3); # Undocumented
+	my $oid = 0 x 56;
+	my $oid_len = pack("L", length $oid);
+	&sysctl_syscall($mib, ((length $mib)/4), $oid, $oid_len,
+		$name, length $name) && die "Sysctl $name mib failed ($!)\n";
+	my $buflen = pack("L",1);
+	&sysctl_syscall($oid, unpack("L",$oid_len)/4, 0, $buflen, 0, 0)
+		&& die "Sysctl $name length probe failed ($!)\n";
+	my $oldbuf = 0 x unpack("L",$buflen);
+	&sysctl_syscall($oid, unpack("L",$oid_len)/4, $oldbuf, $buflen,
+		$newbuf?$newbuf:0, length $newbuf)
+		&& die "Sysctl $name failed ($!)\n";
+	$oldbuf;
+}

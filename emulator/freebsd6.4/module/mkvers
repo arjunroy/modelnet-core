@@ -1,0 +1,17 @@
+#!/bin/sh
+#
+# Copyright (c) 2003 Duke University  All rights reserved.
+# See COPYING for license statement.
+#
+
+HOST=`hostname -s`
+KERNEL=`uname -r`
+cat << EOM
+#include <stdio.h>
+#include "config.h"
+void version_splash(void) ;
+void version_splash() {
+        printf ("%s %s   built %s %s $USER@$HOST for $KERNEL\n",
+		PACKAGE_NAME, VERSION, __DATE__,__TIME__);
+}
+EOM
