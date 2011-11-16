@@ -16,7 +16,7 @@ SCRIPTS = inet2xml mkmodel
 allpairs : $(TARGET)
 
 $(TARGET): $(ALLPAIRS_SOURCES) $(ALLPAIRS_HEADERS)
-	$(CC) -o $(TARGET) $(ALLPAIRS_SOURCES) $(ALLPAIRS_LDADD) $(ALLPAIRS_LDFLAGS)
+	$(CC) -o $(TARGET) -g $(ALLPAIRS_SOURCES) $(ALLPAIRS_LDADD) $(ALLPAIRS_LDFLAGS)
 
 install: $(TARGET) install-scripts
 	if [ -d $(INSTALL_DIR) ]; then \

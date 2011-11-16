@@ -58,6 +58,8 @@ struct AllPairRoute {
             if (g[*vi].s("role")!="virtnode") continue;
 
 	    MNGraph::Vertex node = *vi;
+            if (d[*vi] == 0x7FFFFFFF) // unreachable
+                continue;
             std::vector<MNGraph::Edge> hops(d[*vi]);
 	    for (int i=d[*vi]; i; --i) {
 		graph_traits<MNGraph>::out_edge_iterator ei, eend;
