@@ -1,6 +1,0 @@
-######################################################
-[PASS] the ordering test with pipe bandwidth 100(Kbps).
-[PASS] the ordering test with pipe bandwidth 1000(Kbps).
-[PASS] the ordering test with pipe bandwidth 10000(Kbps).
-[PASS] the ordering test with pipe bandwidth 100000(Kbps).
-######################################################

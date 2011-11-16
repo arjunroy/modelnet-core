@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
-<hardware>
-<emul hostname="sysnet28.ucsd.edu"/>
-<host hostname="sysnet27.ucsd.edu"/>
-<host hostname="sysnet26.ucsd.edu"/>
-</hardware>
