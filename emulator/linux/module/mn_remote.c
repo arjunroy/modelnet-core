@@ -58,9 +58,5 @@ int
 remote_hop(struct packet * pkt, in_addr_t owner_ip)
 {
     printk ("Remote hop is not implemented in this release\n");
-/* let's not panic... */
-#if 0
-    ASSERT(0);
-#endif
     return -1;
 }
