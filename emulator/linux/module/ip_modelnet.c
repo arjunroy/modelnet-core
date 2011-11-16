@@ -283,6 +283,24 @@ static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
             }
         }
 
+        /*
+         * For schedulers with relatively slow ticks, or
+         * fast links, we have the case where the bytespertick for
+         * a hop could be fairly close to the packet size. Since Linux
+         * does not support floating point operations in kernel, we are
+         * forced to use integer math which means calculating bwdelay
+         * will lead to a non-trivial remainder which isn't accounted for.
+         *
+         * To combat this, we can either:
+         * 1. Use an accumulator to add all the remainder values to and
+         * charge that when it becomes big enough, or
+         * 2. Randomly decide to charge a packet extra if the remainder
+         * is large enough. So if a packet is 150 bytes and the bytespertick
+         * is 100 bytes, we have a 50% chance of having a bwdelay of 2 ticks
+         * instead of 1 (150/100 in integer math). That means that for a
+         * large enough number of bytes, the amount we are charged is expected
+         * to be the correct amount.
+         */
         if (len && hop->bytespertick>50) {
             int remainder;
             u_int randNum;
