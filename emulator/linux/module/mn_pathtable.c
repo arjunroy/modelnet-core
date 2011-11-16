@@ -51,8 +51,6 @@ static struct hop *hoptable = NULL;
 int nodecount  = 0;
 static struct hop ****pathtable = NULL;
 
-DEFINE_SPINLOCK(topology_lock);
-
 
 /** 
  * lookup_path - this is unmodified from BSD version of modelnet
@@ -122,26 +120,19 @@ uninit_paths(void)
   unsigned long flags;
   int i;
 
-  //spin_lock_bh(&topology_lock);
-
   free_path();
   if (hoptable) 
   {
     for (i = 0; i < hopcount; ++i)
     {
-      /* xtq_uninstall(&(hoptable[i]),-1);   */
-
       kfree(hoptable[i].exittick);
       kfree(hoptable[i].slotlen);
     }
     
-    /* kfree(hoptable); */
     vfree(hoptable);
   }
   hoptable = NULL;
   hopcount = 0;
-
-  //spin_unlock_bh(&topology_lock);
 }
 
 
@@ -236,8 +227,6 @@ proc_nodecount(ctl_table *table, int write,
   if (!write)
     return 0;
   
-  //spin_lock_bh(&topology_lock);
-
   if (oldcount != nodecount) 
   {
 
@@ -258,11 +247,9 @@ proc_nodecount(ctl_table *table, int write,
      */
     pathtable = kmalloc(nodecount * sizeof(struct hop **),
 			GFP_ATOMIC);
-    /* printk("pathtable size: %d\n", nodecount * sizeof(struct hop **)); */
     if (!pathtable) 
     {
       free_path();
-      //spin_unlock_bh(&topology_lock);
       return -ENOMEM;
     }
 
@@ -270,19 +257,15 @@ proc_nodecount(ctl_table *table, int write,
     {
       /* See comment above regarding M_WAITOK and interrupts */
       pathtable[i] = kmalloc(nodecount * sizeof(struct hop *), GFP_ATOMIC);
-      
       if (!pathtable[i]) 
       {
-	nodecount=i-1;
-	free_path();
-	//spin_unlock_bh(&topology_lock);
-	return -ENOMEM;
+        nodecount=i-1;
+        free_path();
+        return -ENOMEM;
       }
       memset(pathtable[i], 0, nodecount * sizeof(struct hop *));
     }
   }
-
-  //spin_unlock_bh(&topology_lock);
 
   return 0;
 }
@@ -317,7 +300,6 @@ proc_hophandle(ctl_table *table, int write,
   
 #ifdef MN_TCPDUMP
   traceLinkCount = 0;
-/*    tcpDumpCount_debug = 0;*/
 #endif
   
   /* hophandle should be set as write-only when registering in
@@ -387,21 +369,16 @@ proc_hophandle(ctl_table *table, int write,
   }
   uninit_paths();
 
-  /* hoptable = kmalloc(tab.hopcount * sizeof(*hoptable), GFP_KERNEL); */
   hoptable = vmalloc(tab.hopcount * sizeof(*hoptable));
-  //spin_lock_bh(&topology_lock);
-
   if (!hoptable) 
   {
     printk("hoptable alloc failed. (%lu KB)\n",
 	   (unsigned long)(tab.hopcount * sizeof(*hoptable)/1024));
-    //spin_unlock_bh(&topology_lock);
     return -ENOMEM;
   }
   memset(hoptable, 0, tab.hopcount * sizeof(*hoptable));
 
   hopcount = tab.hopcount;
-  /* printk("hopcount is %d\n", hopcount); */
   for (i = 0; i < hopcount; ++i) 
   {
     struct hop     *hop = hoptable + i;
@@ -444,7 +421,6 @@ proc_hophandle(ctl_table *table, int write,
     if (!hop->exittick) {
       printk("hop->exittick alloc failed %lu\n", 
 	     (unsigned long)(hop->qsize * sizeof(*hop->exittick)));
-      //spin_unlock_bh(&topology_lock);
       return -ENOMEM;
     }
     memset(hop->exittick, 0, hop->qsize * sizeof(*hop->exittick));
@@ -458,72 +434,15 @@ proc_hophandle(ctl_table *table, int write,
     if (!hop->slotlen) 
     {
       printk("hop->slotlen alloc failed\n");
-      //spin_unlock_bh(&topology_lock);
       return -ENOMEM;
     }
     memset(hop->slotlen, 0, hop->qsize * sizeof(*hop->slotlen));
-
-    /* XXX xtq disabled for now */
-    /* xtq_install(hop, hops[i].xtq_type); */
   }
-  /* kfree(hops); */
   vfree(hops);
-  //spin_unlock_bh(&topology_lock);
 
   /* Return 0 on success */
   return 0;
 }
-
-
-/* XXX have not converted hopmod or modelmod */
-/* static int */
-/* sysctl_hopmodhandle(SYSCTL_HANDLER_ARGS) */
-/* { */
-/*     int             error, s; */
-/*     struct sysctl_hopmod mod; */
-/*     struct hop     *hop; */
-
-/*     error = SYSCTL_IN(req, &mod, sizeof(mod)); */
-/*     if (error || !req->newptr) { */
-/*         if (!req->oldptr) */
-/*             error = SYSCTL_OUT(req, &hopcount, sizeof(hopcount)); */
-/*         return error; */
-/*     } */
-
-/*     if (mod.hopidx>=hopcount) return EINVAL; */
-
-/*     s = splimp(); */
-
-/*     hop = hoptable + mod.hopidx; */
-
-/*     hop->KBps = mod.hop.bandwidth/8; */
-/*     hop->delay = (hz * mod.hop.delay) / 1000; */
-/*     hop->plr = mod.hop.plr; */
-/*     /\* qsize change not allowed due to re-allocation */
-/*      * hop->qsize = mod.hop.qsize; */
-/*      *\/ */
-/*     hop->emulator = mod.hop.emulator; */
-/*     hop->bytespertick = hop->KBps*1000/hz; */
-/*     /\* XTQ *\/ */
-/*     xtq_uninstall(hop, mod.hop.xtq_type); */
-
-/*     splx(s); */
-/* #if 0 */
-/*     printf("hopmod: idx(%d) bw(%d) delay(%d) plr(%d) qsize(%d)\n", */
-/* 	   mod.hopidx,hop->KBps, hop->delay, hop->plr, hop->qsize); */
-/* #endif */
-
-
-/*     error = SYSCTL_OUT(req, &hopcount, sizeof(hopcount)); */
-
-/*     return (error); */
-/* } */
-
-/* SYSCTL_PROC(_net_inet_ip_modelnet, OID_AUTO, hopmod, */
-/*             CTLTYPE_OPAQUE | CTLFLAG_RW, NULL, 0, sysctl_hopmodhandle, */
-/*             "S,xlat", "Modify hop params"); */
-
-
 
 /**
  * proc_hopstats - User is expected to do a read on the proc
@@ -673,15 +592,12 @@ proc_pathentry(ctl_table *table, int write,
     return -EFAULT;
   }
     
-  //spin_lock_bh(&topology_lock);
-
   pathtable[entry.src_node][entry.dst_node] = 
     kmalloc((entry.pathlen + 1) * sizeof(struct hop *), GFP_ATOMIC);
     
   if (!pathtable[entry.src_node][entry.dst_node]) 
   {
     printk("path alloc failed\n");
-    //spin_unlock_bh(&topology_lock);
     return -ENOMEM;
   }
   memset(pathtable[entry.src_node][entry.dst_node], 0, 
@@ -696,9 +612,6 @@ proc_pathentry(ctl_table *table, int write,
   pathtable[entry.src_node][entry.dst_node][entry.pathlen] = NULL;
 
   kfree(hops);
-
-  //spin_unlock_bh(&topology_lock);
-
   return 0;
 }
 

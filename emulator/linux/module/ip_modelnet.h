@@ -100,10 +100,7 @@ struct sysctl_pathentry {
     int             pathlen;
 } __attribute__((packed));
 
-
 /* #ifdef _KERNEL */
-
-
 
 /*
  * We exchange remote_packet structs between cores.
@@ -118,45 +115,13 @@ struct remote_packet {
     unsigned long   hop;        /* not real source route */
 
     signed char     ttl;        /* time-to-live in multi-core system */
-
-	/* ------ XCP pkt hdr information ------ */
-
-/*     u_int  xcp_cwnd;            /\* current window *\/ */
-/*     int    xcp_src_fdbk;        /\* network router feedback  *\/ */
-/*     int    xcp_rflct_fdbk;      /\* bounced from rcvr *\/ */
-/*     u_int  xcp_rtt;             /\* round trip time sample *\/ */
-
 };
-
-
-/* /\* */
-/*  * One of these per active core destination  */
-/*  *\/ */
-/* struct remote_aggregate {    */
-/* 	struct mbuf *m;    /\* current pending packet *\/ */
-/* 	u_int32_t id;      /\* ip address of core *\/ */
-/* 	u_int32_t state;   */
-/* #define MN_AGG_FULL  0x1 */
-/* #define MN_AGG_FREE  0x2 */
-/* #define MN_AGG_BUSY  0x4 */
-/* 	u_int32_t num_digests;  /\* number of digests assembled *\/ */
-/* 	int bytes_left;  /\* target size -- *\/ */
-/* 	TAILQ_ENTRY(remote_aggregate) list,free; */
-/* }; */
-
-
-/* typedef TAILQ_HEAD(mn_pending_head, remote_aggregate) *mn_pending_head_t; */
-
-
 
 typedef struct packet {
     struct hop    **path;       /* source route of hops packet traverses */
-/*     struct mbuf    *m;          /\* pkt payload *\/ */
-  struct sk_buff  *skb;
+    struct sk_buff  *skb;
     in_addr_t       cachehost;  /* address of core caching the packet or 0 */
   
-  /* BSD data structure */
-  /* TAILQ_ENTRY(packet) list; */
     struct list_head list; 
   
 /* Packet State */
@@ -171,29 +136,6 @@ typedef struct packet {
  */
 
 typedef struct packet pktlist;
-/* BSD data structure */
-/*TAILQ_HEAD(pktlist, packet);*/
-/* struct pktlist { */
-/*   struct packet *head; */
-/* }; */
-
-/* #define INSERT_TAIL(list, node) if (list.head == NULL) list.head = node \ */
-/* else list_add_tail(node, list.head) */
-
-/* struct extended_q { */
-/* 	int	type;		/\* socket type used for *\/ */
-/* 	char    *name;          /\* extended queue name *\/ */
-/* 	short	flags;		/\* see below *\/ */
-/*     /\*------ Xtended per-hop processing ---- *\/	 */
-/* 	int (*alloc)    (struct hop *h); */
-/* 	void (*free)     (struct hop *h); */
-/* 	void (*enqueue) (struct hop *h, mn_pkt_t pkt); */
-/* 	void (*dequeue) (struct hop *h, mn_pkt_t pkt); */
-/* 	void *xt_hop; */
-/*     /\*------ Xtended pipe definition ---- *\/	 */
-/* }; */
-
-
 
 struct hop {
     spinlock_t      lock;
@@ -215,21 +157,13 @@ struct hop {
     int             headslot;   /* next slot to dequeue */
     int             fragment;   /* available bytes in tick next pkt can use */
     unsigned long  *exittick;   /* array holding the time each queued
-                                 * packet will exit the queue
-				 */
-    int            *slotlen;    /* array holding length of each queued
-				     * packet */
+                                 * packet will exit the queue */
+    int            *slotlen;    /* array holding length of each queued packet */
 
     int             pkts,
                     bytes,
                     qdrops;     /* stats */
-
-    /* --- Xtended queueing disciplines --- */
-  /* struct extended_q    xtq; */
-
 };
-
-
 
 typedef struct hop_scheduler {
 	void (*timeout) (struct hop *h);  /* call this */
@@ -237,10 +171,6 @@ typedef struct hop_scheduler {
   /* TAILQ_ENTRY(hop_scheduler) list,free; */
   struct list_head list;
 } *hop_scheduler_t;
-
-/* typedef TAILQ_HEAD(hoplist, hop_scheduler) *hoplist_t; */
-
-
 
 /*
  * We keep some historical statistics in the kernel.
@@ -292,7 +222,6 @@ struct mn_stats {
     u_int32_t       pkts_queued;        /* packets in the switch */
 };
 
-/* typedef TAILQ_HEAD(mn_pkt_head, packet) *mn_pkt_head_t; */
 struct mn_pkt_head {
   struct packet *head;
 };
@@ -332,42 +261,11 @@ struct mn_config {
 
 #define MODEL_FORCEOFF(addr) ((addr)&(~MODEL_FORCEBIT))
 
-
 #define MN_FREE_PKT(pkt)	{	\
         if (pkt->skb) kfree_skb(pkt->skb);	\
 	pkt->skb = NULL; \
         kfree(pkt);	\
         mn.stats.pkt_free++;}
-
-/* #define MN_UNCACHE_PKT(pkt)	{	\ */
-/*         TAILQ_REMOVE(&(mn.mc_pcache),pkt,list);\ */
-/*         pkt->info.id = NULL; \ */
-/*         mn.stats.pcache_occupancy--;} */
-
-/* #if 0 */
-/* #define MN_DUMP_PKT(pkt) {	\ */
-/*         struct ip *ip;\ */
-/* 	printf("MN_DUMP_PKT: mbuf(0x%x), info.len(%d) m_len(%d) m_data(%x) m_nxtpkt(%x)\n",pkt->m, pkt->info.len,m->m_len,m->m_data,m->m_nextpkt);\ */
-/*         if(pkt->m){\ */
-/*              ip = mtod(pkt->m, struct ip*);\ */
-/*              printf("> ip_src = %s\n", inet_ntoa(ip->ip_src));\ */
-/*              printf("> ip_dst = %s\n", inet_ntoa(ip->ip_dst));\ */
-/*              printf("> ip_prot = %d\n", ip->ip_p);\ */
-/*              printf("> ip_len = %d\n", ip->ip_len);\ */
-/*              printf("> ip_ttl = %d\n", ip->ip_ttl);\ */
-/*          }} */
-/* #else */
-/* #define MN_DUMP_PKT(pkt) */
-/* #endif */
-
-
-
-/* #define DUMP_HOP(hop){\ */
-/*     printf("dump_hop: line %d, hop->resid(%d), hop->currslot(%d), len(%d), hop->KBps(%d), hop(0x%x) ", __LINE__,hop->residual,hop->currslot, len, hop->KBps, (u_int32_t) hop);\ */
-/*     printf(" popticks(%u) tick(%u) hop->stamp(%u)\n",popticks, ticks, hop->stamp);\ */
-/* } */
-
-
 
 /*
  * silly helper for printing net-order ip addresses in 32bit ints
@@ -388,38 +286,6 @@ struct mn_config {
 #define IP_ADDR_QUAD_H(x) (((x)>>24)&0xff), (((x)>>16)&0xff), \
 			    (((x)>>8)&0xff), ((x)&0xff)
 
-
-
-/* /\* */
-/*  * print levels  */
-/*  *\/ */
-/* #define MN_P_PKTS    0x1 */
-/* #define MN_P_ERR     0x2 */
-/* #define MN_P_DOUBLEQ 0x4 */
-/* #define MN_P_AGG     0x8 */
-
-/* #define P_XCP        0x10 */
-/* #define P_XCP_TO     0x20  /\* Te To timeouts *\/ */
-/* #define P_XCP_FB     0x40  /\* feedback *\/ */
-/* #define P_XTQ        0x80  /\* eXtended queueing info *\/ */
-
-
-
-/* /\* */
-/*  * supports multiple flags  */
-/*  *\/ */
-/* #if 1 */
-/* #define Dprintf(x,level) {\ */
-/*         if (level == (mn_debug_g & level))\ */
-/*             printf x;\ */
-/* } */
-/* #else */
-/* #warning "DPRINTF UNDEFINED (in tuf_var.h)" */
-/* #define Dprintf(x,level) */
-/* #endif */
-
-
-
 /*
  * ASSERT macro
  */
@@ -435,24 +301,14 @@ panic("assert failed \"%s\" %s line %d", XSTR(x), __FILE__, __LINE__);
 #endif
 #endif
 
-
 struct hop    **lookup_path(in_addr_t src, in_addr_t dst);
 void            uninit_paths(void);
 int             remote_hop(struct packet *, in_addr_t);
 void            emulate_nexthop(struct packet *pkt, int needlock);
 
-
-
-
-/* extern u_short  remote_port; */
 extern struct mn_config mn;
 extern struct mn_error g_error;
 extern u_int32_t mn_debug_g;
-/* extern struct hoplist *hop_calendar;                  */
-
-/* #endif                          /\* _KERNEL *\/ */
-
-
 
 /* Random Number Generation */
 #define MERS_N   624

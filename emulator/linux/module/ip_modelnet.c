@@ -89,11 +89,6 @@ static pktlist *packet_calendar;   /* the packet scheduling array */
 
 unsigned long    calendar_tick = 0;
 
-/* static struct callout_handle hopclock_handle; */
-
-/* /\* A second calendar queue helps out with XTQ *\/ */
-/* struct hoplist *hop_calendar;              /\* hop scheduling calendar*\/ */
-
 /* stats and debug */
 struct mn_error g_error;
 u_int32_t       mn_debug_g;
@@ -102,13 +97,6 @@ static int      pktcount[60];
 /* Random Number Generation */
 static int mti;   
 static u_int mt[MERS_N];
-
-
-/* extern int      osreldate; */
-
-/* void version_splash(void); */
-
-
 
 #ifdef MODELNET_PROFILE
 /* 
@@ -137,24 +125,18 @@ unsigned long long get_hr_time( void )
  */
 static void forward_packet(struct packet *pkt)
 {
-/*   struct mbuf    *m; */
-    //printk("forward_packet: doing [%p]\n", pkt);
     if (pkt->skb == NULL) 
     {
-	/*
-	 * return remote packet home when cached
-	 */
-	/* XXX remote not implemented yet */
-	//printk("forward_packet: doing remote hop for [%p]\n", pkt);
-	remote_hop(pkt, pkt->cachehost);    
-	return;
+        /*
+         * return remote packet home when cached
+         */
+        /* XXX remote not implemented yet */
+        remote_hop(pkt, pkt->cachehost);    
+        return;
     }
     
     struct  iphdr *ip;
     ip = ip_hdr(pkt->skb);
-    //printk("forward_packet: Pkt [%p] IP SRC %d.%d.%d.%d IP DST %d.%d.%d.%d\n", pkt, NIPQUAD(ip->saddr), NIPQUAD(ip->daddr));
-
-    //printk("forward_packet: Calling ip rcv finish hook on pkt [%p]\n", pkt);
     ip_rcv_finish_hook(pkt->skb);
 
     /*
@@ -239,12 +221,12 @@ static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
 
     if (hop->KBps) {  /* bw delay of 0 means no bw limit */
         /* pass saved calendar_tick value to avoid another lock/unlock */
-	update_bwq(hop, curtick);
-	/* drop packets for queue overflows */
-	if (hop->slotdepth >= hop->qsize) {
-	    willDropPacket_bw = 1;
-	    ++hop->qdrops;      /* stats */
-	}
+        update_bwq(hop, curtick);
+        /* drop packets for queue overflows */
+        if (hop->slotdepth >= hop->qsize) {
+            willDropPacket_bw = 1;
+            ++hop->qdrops;      /* stats */
+        }
     }
 
 #ifdef MN_TCPDUMP
@@ -269,12 +251,12 @@ static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
      * is scheduled to exit hop.
      * if queue is empty, use the current time and reset fragment to 0 
      */
-    if (hop->slotdepth)
-	tailexit = hop->exittick[(hop->headslot + hop->slotdepth -1)
-				 % hop->qsize];
+    if (hop->slotdepth) {
+        tailexit = hop->exittick[(hop->headslot + hop->slotdepth -1) % hop->qsize];
+    }
     else {
-	tailexit = curtick;
-	hop->fragment=0;
+        tailexit = curtick;
+        hop->fragment=0;
     }
 
     /* for hops with bw limits, calculate with integer math how many
@@ -285,42 +267,43 @@ static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
      */
   
     if (hop->KBps) {
-	u_int len = pkt->info.len;
-	u_int bwdelay = 0;
-	int fragused=0;
+        u_int len = pkt->info.len;
+        u_int bwdelay = 0;
+        int fragused=0;
 
-	if (hop->fragment>len) {
-	    hop->fragment -= len;
-	    len = 0;
-	} else {
-	    if (hop->fragment) {
-		len -= hop->fragment;
-		fragused=1;
-		hop->fragment = 0;
-	    }
-	}
+        if (hop->fragment>len) {
+            hop->fragment -= len;
+            len = 0;
+        }
+        else {
+            if (hop->fragment) {
+                len -= hop->fragment;
+                fragused=1;
+                hop->fragment = 0;
+            }
+        }
 
-	if (len && hop->bytespertick>50) {
-	    int remainder;
-	    u_int randNum;
+        if (len && hop->bytespertick>50) {
+            int remainder;
+            u_int randNum;
 
-	    bwdelay = (len / hop->bytespertick) + fragused;	    
-	    remainder = len % hop->bytespertick;
-      
-	    randNum = randomVal % hop->bytespertick;
-	    if (randNum < remainder) {
-		bwdelay++;
-	    }
-	} else {
-	    bwdelay = ((u_int) len * (u_int)HZ) / (u_int) (1000*hop->KBps);
-	}
+            bwdelay = (len / hop->bytespertick) + fragused;	    
+            remainder = len % hop->bytespertick;
 
-	if (!bwdelay)
-	    g_error.delayzero++;
+            randNum = randomVal % hop->bytespertick;
+            if (randNum < remainder) {
+                bwdelay++;
+            }
+        } 
+        else {
+            bwdelay = ((u_int) len * (u_int)HZ) / (u_int) (1000*hop->KBps);
+        }
 
-	tailexit += bwdelay;
+        if (!bwdelay)
+            g_error.delayzero++;
+
+        tailexit += bwdelay;
     }
-
 
     /* add packet to virtual queue of this hop */
     ++hop->slotdepth;
@@ -428,45 +411,28 @@ void emulate_nexthop(struct packet *pkt, int needlock)
  *
  *   Returns 0 for success, errno otherwise.
  */
-static int emulate_path(struct packet *pkt, int short_circuit)
+static int emulate_path(struct packet *pkt)
 {
     struct  iphdr *ip;
 
     ip = ip_hdr(pkt->skb);
-
-    //printk("emulate_path: Pkt [%p] IP SRC %d.%d.%d.%d IP DST %d.%d.%d.%d\n", pkt, NIPQUAD(ip->saddr), NIPQUAD(ip->daddr));
 
     /*
      * set the src with the forcebit, if set on dst
      */
     ip->saddr |= (ip->daddr & MODEL_FORCEBIT);
   
-    //printk("emulate_path: Pkt [%p] Did set SRC to %d.%d.%d.%d\n", pkt, NIPQUAD(ip->saddr));
-
     /*
      * clear the destination of forcebit
      */
     ip->daddr &= ~(MODEL_FORCEBIT);
 
-    if (short_circuit)
-        return ENOENT;
-
-    //printk("emulate_path: Pkt [%p] Did set DST to %d.%d.%d.%d\n", pkt, NIPQUAD(ip->daddr));
-
     pkt->path =
 	lookup_path(MODEL_FORCEOFF(ip->saddr), ip->daddr);
 
-
     if (pkt->path == NULL) {
-/*     Dprintf(("emulate_path: no path for packet srcip(0x%x) dstip(0x%x)\n",ip->ip_src.s_addr, ip->ip_dst.s_addr), MN_P_ERR); */
-	//printk("emulate_path: no path for packet srcip(0x%x) dstip(0x%x)\n",
-	       //ip->saddr, ip->daddr);
-	return ENOENT;
-    } else {
-	/* Dprintf(("emulate_path: beginning path for packet\n"), MN_P_PKTS); */
-	//printk("emulate_path: beginning path for packet [%p]\n", pkt);
-    }
-
+        return ENOENT;
+    } 
 
     pkt->info.hop = 0;
 
@@ -474,7 +440,6 @@ static int emulate_path(struct packet *pkt, int short_circuit)
     pkt->info.dst = ip->daddr;
 
     emulate_nexthop(pkt, 1);
-    //printk("emulate_path: returning success for packet [%p]\n", pkt);
     return 0;
 }
 
@@ -509,12 +474,6 @@ static void hopclock(struct work_struct *irrelevant)
     spin_lock_bh(&calendar_lock);
     while (time_is_before_jiffies(calendar_tick)) {
 	int slot = calendar_tick& SCHEDMASK;
-/*     while (!TAILQ_EMPTY(packet_calendar + slot)) { */
-/*       pkt = TAILQ_FIRST(packet_calendar + slot); */
-/*       TAILQ_REMOVE(packet_calendar + slot, pkt, list); */
-/*       mn.stats.pkts_queued--;     /\* stats *\/ */
-/*       emulate_nexthop(pkt); */
-/*     } */        
 
 	list_for_each_safe (pos, q, &(packet_calendar[slot].list)) {
 	    pkt = list_entry(pos, struct packet, list);
@@ -542,11 +501,6 @@ static void hopclock(struct work_struct *irrelevant)
  *
  * Send new packets to emulate_path() and remote to remote_input()
  */
-
-/* static int */
-/* filter_ipinput(struct mbuf *m, int pipe_nr, int dir, */
-/*                struct ip_fw_args *fwa) */
-
 static unsigned int filter_ipinput(unsigned int hooknum,
 				   struct sk_buff *skbuff,
 				   const struct net_device *in,
@@ -558,68 +512,56 @@ static unsigned int filter_ipinput(unsigned int hooknum,
     unsigned int netfilterResult = NF_ACCEPT;
     int err = 0;
 
-    //printk("modelnet ipfilter: Query Modelnet packet?\n");
-  
     if (!skbuff) return NF_ACCEPT;
     iph = ip_hdr(skbuff);
     if (!iph) return NF_ACCEPT;
 
-    //printk("modelnet ipfilter: basic sanity passed\n");
-  
     if (((iph->saddr & MODEL_MASK) == MODEL_SUBNET) 
 	&& ((iph->daddr & MODEL_MASK) == MODEL_SUBNET)) {
         
-	/* XXX this should be locked, but it's hardly critical */
-	if (ip_rcv_finish_hook == NULL) 
-	    ip_rcv_finish_hook = okfn;
-	else if (ip_rcv_finish_hook != okfn)
-	{
-	    printk("filter_ipinput: SOMETHING IS WEIIIIRD!  differnet okfns\n");
-	    ip_rcv_finish_hook = okfn;
-	}        
+        /* XXX this should be locked, but it's hardly critical */
+        if (ip_rcv_finish_hook == NULL) {
+            ip_rcv_finish_hook = okfn;
+        }
+        else if (ip_rcv_finish_hook != okfn) {
+            printk("filter_ipinput: SOMETHING IS WEIIIIRD!  differnet okfns\n");
+            ip_rcv_finish_hook = okfn;
+        }        
 
-	pkt = kmalloc(sizeof(struct packet), GFP_ATOMIC);
-
-
-	if (!pkt) {
-	    //printk ("filter_ipinput: ERROR: could not allocate packet\n");
-	    return NF_ACCEPT;      
-	}
+        pkt = kmalloc(sizeof(struct packet), GFP_ATOMIC);
+        if (!pkt) {
+            return NF_ACCEPT;      
+        }
         
 #if 0
-	/* XXX this would be made atomic, if it was ever used anywhere... */
-	mn.stats.pkt_alloc++;
+        /* XXX this would be made atomic, if it was ever used anywhere... */
+        mn.stats.pkt_alloc++;
 #endif
-	pkt->skb = skbuff;
-	pkt->info.len = skbuff->len;
+        pkt->skb = skbuff;
+        pkt->info.len = skbuff->len;
 
-	pkt->cachehost = 0;
-	pkt->info.id = 0;
+        pkt->cachehost = 0;
+        pkt->info.id = 0;
     
-	err = emulate_path(pkt, 0); /* emulate_path returns 0 on success */
+        err = emulate_path(pkt); /* emulate_path returns 0 on success */
 
-	if (err != 0) {
-	    //printk ("filter_ipinput: Error with emulate path\n");
-	    netfilterResult = NF_ACCEPT;
-	} else {
-	    //printk("modelnet ipfilter: stolen packet! [%p]\n", pkt);
-	    netfilterResult = NF_STOLEN;
-	}
-    } else {
-	/* No remote stuff */
-        //printk("modelnet ipfilter: no remote stuff\n");
+        if (err != 0) {
+            netfilterResult = NF_ACCEPT;
+        } else {
+            netfilterResult = NF_STOLEN;
+        }
+    } 
+    else {
+        /* No remote stuff */
     }
 
     if (netfilterResult == NF_ACCEPT) {
-        //printk("modelnet ipfilter: check if packet copy should be freed before washing hands off of it");
-	if (pkt != NULL) {
-	    pkt->skb = NULL;
-	    MN_FREE_PKT(pkt);
-	    //printk("modelnet ipfilter: freed packet");
-	}
+        if (pkt != NULL) {
+            pkt->skb = NULL;
+            MN_FREE_PKT(pkt);
+        }
     }
 
-    //printk("modelnet ipfilter: returning %s\n", (netfilterResult == NF_ACCEPT ? "NF_ACCEPT" : "NF_STOLEN"));
     return netfilterResult;
 }
 
@@ -680,43 +622,23 @@ u_int random_bits(void) {
 static
 int modelnet_load(void)
 {
-  
     int i;
-  
-
-    /* s = splnet(); */
- 
-    /* XXX Register with iptables here */
-  
-    /* XXX Register timer interrupts ...
-       We decided to use work queues ... */
-/*     bzero(&hopclock_handle, sizeof(struct callout_handle)); */
-/*     hopclock_handle = timeout(hopclock, NULL, 1); */
-
-  
     memset(&g_error, 0, sizeof(struct mn_error));  
 
-    mn_debug_g = 0;/* MN_P_PKTS|MN_P_ERR;         printfs we want */
-
-  
+    mn_debug_g = 0;
     calendar_tick = jiffies;
 
     packet_calendar = (pktlist *) 
 	vmalloc(sizeof(*packet_calendar) * SCHEDLEN);
   
     if (!packet_calendar) {
-	printk("Could not allocate packet calendar\n");
-	return ENOMEM;
+        printk("Could not allocate packet calendar\n");
+        return ENOMEM;
     }
-/*     hop_calendar = (struct hoplist *) malloc(sizeof(*hop_calendar) * SCHEDLEN, */
-/* 					     M_MN_PKTS, M_NOWAIT); */
     for (i = 0; i < SCHEDLEN; ++i) {
-	INIT_LIST_HEAD(&(packet_calendar[i].list));
+        INIT_LIST_HEAD(&(packet_calendar[i].list));
     }
   
-  
-/*     version_splash(); */
-
 #ifdef MN_TCPDUMP
     init_mn_tcpdump_buffers();
 #endif
@@ -724,32 +646,20 @@ int modelnet_load(void)
     return 0;
 }
 
-
-
 static int modelnet_unload(void)
 {
     uninit_paths();
-
-/*         free(hop_calendar, M_MN_PKTS); */  
-/*         free(packet_calendar, M_MN_PKTS); */
     vfree(packet_calendar);
-  
     printk(KERN_INFO "Modelnet uninstalled.\n");
-
     return 0;
 }
-
-
 
 /* Linux stuff after here */
 MODULE_DESCRIPTION("Modelnet for Linux");
 MODULE_AUTHOR("Calvin Hubble and Marti Motoyama");
 MODULE_LICENSE("GPL");
 
-
-
 #define MODELNET_CTL_ID 500
-
 
 static ctl_table modelnet_inner_table[] = { 
   
@@ -859,7 +769,6 @@ static struct nf_hook_ops nfho = {
 
 static int __init modelnet_init(void)
 {
-
     int ret;
 
     /* Seed our random number generator */
@@ -867,28 +776,25 @@ static int __init modelnet_init(void)
     get_random_bytes(&randomVal, 4);
     random_seed(randomVal);
 
-  
     /* Register sysctl table */
     if (!(my_table_header = register_sysctl_table(modelnet_ctl_table)))
-	return -EPERM;
+        return -EPERM;
   
     /* load modelnet */
-    if (modelnet_load()) 
-    {
-	printk ("Error loading Modelnet\n");
-	return -EPERM;
+    if (modelnet_load()) {
+        printk ("Error loading Modelnet\n");
+        return -EPERM;
     }
   
     /* create work queue */
     modelnet_workqueue = create_workqueue(MN_WORKQUEUE_NAME);
     queue_delayed_work(modelnet_workqueue, &hopclock_task, 1);
 
-
     /* register netfilter hook */
     if ((ret = nf_register_hook(&nfho)) < 0)
-	printk ("Modelnet unable to register with netfilter, check kernel config\n");
+        printk ("Modelnet unable to register with netfilter, check kernel config\n");
     else
-	printk ("Modelnet registered with netfilter\n");
+        printk ("Modelnet registered with netfilter\n");
 
     return ret;
 }
