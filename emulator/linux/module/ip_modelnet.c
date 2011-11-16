@@ -202,6 +202,8 @@ static void update_bwq(struct hop *hop, unsigned long tick)
  *      updating slotdepth and exittick
  * Emulate link latency hop->delay
  * Insert pkt into calendar queue for time (tailexit + hop->delay)
+ *
+ * Returns -ENOBUFS if packet dropped, 1 if forwarded, 0 otherwise.
  */
 
 static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
@@ -253,7 +255,7 @@ static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
     /* If we already calculated to drop the packet, do it now */
     if (willDropPacket_plr || willDropPacket_bw) {
         spin_unlock_bh(&hop->lock);
-	return ENOBUFS;
+        return -ENOBUFS;
     }
 
 #if 0
@@ -340,8 +342,10 @@ static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
     spin_unlock_bh(&hop->lock);
 
     /* if packet is ready now, send it on its way */
-    if (tailexit == curtick)
+    if (tailexit == curtick && (*(pkt->path + 1)) == NULL) {
         forward_packet(pkt);
+        return 1; /* Signal that packet was forwarded and must be freed. */
+    }
     else {
         if (needlock)
             spin_lock_bh(&calendar_lock);
@@ -367,31 +371,9 @@ static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
  */
 void emulate_nexthop(struct packet *pkt, int needlock)
 {
-    int             dropped;
-    struct hop     *curhop = *pkt->path;
+    int ret;
+    struct hop *curhop = *pkt->path;
 
-    //printk("emulate_nexthop: packet is [%p] hop is %d\n", pkt, pkt->info.hop);
-
-/*   struct hop     *prvhop = NULL; */
-  
-    /* DEBUG */
-    if (pkt->info.hop==0){ /* first hop */
-	if (curhop->emulator){
-	    printk("emulate_nxthp: hop=0, emulator!=NULL, srcip(0x%x) dstip(0x%x)\n",
-		   pkt->info.src,
-		   pkt->info.dst);
-	    printk("        It is likely that the routing table is corrupt.\n");
-	    printk("        Or you're receiving stale VN traffic.\n");
-      
-	    /* drop */
-	    MN_FREE_PKT(pkt); /* should never be cached at this point */
-	    return;
-	}
-        else {
-	    //printk("emulate_nxthp: first hop, and curhop->emulator is not set for pkt [%p].\n", pkt);
-	}
-    }
-  
   /* XXX XTQ stuff not implemented */
 
   /* At this point we're in one of 3 states
@@ -403,35 +385,20 @@ void emulate_nexthop(struct packet *pkt, int needlock)
    * Do not need to reset pkt->state.
    */
 
-
   /* forward_packet()
    * no more hops -> fwd to edge node
    * no more hops + pcache -> fwd to home core
    * reunited locally -> fwd to edge node
    */
-
     if (!curhop) 
     {
-        //printk("emulate_nexthop: no curhop, so call forward_packet for [%p]\n", pkt);
-	forward_packet(pkt);
-	MN_FREE_PKT(pkt); /* should never be cached at this point */
-	return;
+        forward_packet(pkt);
+        MN_FREE_PKT(pkt); /* should never be cached at this point */
+        return;
     }
 
-    /* Dprintf(("emulate_nexthop: pkt(0x%x) hop(%d)\n", */
-/* 	   (int) pkt, (int) pkt->info.hop), MN_P_PKTS); */
-
-#if 0
-    if (!MC_HOP_LOCAL(curhop)) {
-	printk("curhop->id(%d) emulator(%lu.%lu.%lu.%lu)\n",
-	       curhop->id, IP_ADDR_QUAD_N(curhop->emulator));
-    }
-#endif
-
-    dropped = curhop->emulator ? remote_hop(pkt, curhop->emulator) :
-	emulate_hop(pkt, curhop, needlock);
-
-    //printk("Called %s for packet [%p], result dropped=%d\n", (curhop->emulator? "remote hop" : "emulate hop"), pkt, dropped);
+    ret = curhop->emulator ? remote_hop(pkt, curhop->emulator) :
+        emulate_hop(pkt, curhop, needlock);
 
     /*
      * if it was a remote_hop, then this is a essentially a no-op
@@ -441,15 +408,14 @@ void emulate_nexthop(struct packet *pkt, int needlock)
     ++pkt->info.hop;
 
     if (!(MC_PKT_HOME(pkt) && MC_PKT_PCACHED(pkt)) && (curhop->emulator)) {
-	printk("emulate_nexthop: ERROR!  I should not be here\n");
-	/*
-	 * if home and cached, then we can't free this pkt, if remote and
-	 * not home, then can free
-	 */
-	MN_FREE_PKT(pkt);
-    } else if (dropped) {
-        //printk("emulate_nexthop: dropped so free\n");
-	MN_FREE_PKT(pkt);
+        /*
+         * if home and cached, then we can't free this pkt, if remote and
+         * not home, then can free
+         */
+        MN_FREE_PKT(pkt);
+    } else if (ret == -ENOBUFS || ret == 1) {
+        /* Packet was dropped or forwarded, so free. */
+        MN_FREE_PKT(pkt);
     }
 
     return;
@@ -462,7 +428,7 @@ void emulate_nexthop(struct packet *pkt, int needlock)
  *
  *   Returns 0 for success, errno otherwise.
  */
-static int emulate_path(struct packet *pkt)
+static int emulate_path(struct packet *pkt, int short_circuit)
 {
     struct  iphdr *ip;
 
@@ -481,6 +447,9 @@ static int emulate_path(struct packet *pkt)
      * clear the destination of forcebit
      */
     ip->daddr &= ~(MODEL_FORCEBIT);
+
+    if (short_circuit)
+        return ENOENT;
 
     //printk("emulate_path: Pkt [%p] Did set DST to %d.%d.%d.%d\n", pkt, NIPQUAD(ip->daddr));
 
@@ -627,14 +596,14 @@ static unsigned int filter_ipinput(unsigned int hooknum,
 	pkt->cachehost = 0;
 	pkt->info.id = 0;
     
-	err = emulate_path(pkt); /* emulate_path returns 0 on success */
+	err = emulate_path(pkt, 0); /* emulate_path returns 0 on success */
 
 	if (err != 0) {
 	    //printk ("filter_ipinput: Error with emulate path\n");
 	    netfilterResult = NF_ACCEPT;
 	} else {
 	    //printk("modelnet ipfilter: stolen packet! [%p]\n", pkt);
-	    netfilterResult = NF_STOLEN; 
+	    netfilterResult = NF_STOLEN;
 	}
     } else {
 	/* No remote stuff */
