@@ -44,13 +44,18 @@ my ($osname,$hostname) = split ' ',qx/uname -sn/;
 @hostnamefields = split '\.', $hostname;
 $hostname = $hostnamefields[0];
 
-# my $modelxml = &XMLin($modelfile,forcearray => ["host","emul","subnet","virtnode"], keeproot=>1);
-
 $xml = new IO::File $modelfile;
+
+# Advance file to line where our hostname starts
 while(<$xml>) {last if /host.*hostname=.$hostname/;}
 
+# Now examine each VN and IP for our hostname entry in modelfile.
+# 
 while(<$xml>) {
+    # If we're at the starting point for a new host, then we're done.
+    # (None of the remaining VN's listed in the file belong to us).
 	last if /host.*hostname=/;
+
 	($vn) = /int_vn="(\d+)"/;
 	($vip) = /vip="(\d+.\d+.\d+.\d+)"/;
 	next unless $vip;
