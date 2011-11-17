@@ -34,7 +34,7 @@ use File::Spec;
 
 use XML::DOM;
 use CapacityTest::CreateGraph qw (createtopology);
-use CapacityTest::Util qw (get_tcp_flow_throughput_mbps get_ip_packets_forwarded_by_host_count);
+use CapacityTest::Util qw (get_tcp_flow_throughput_mbps get_ip_packets_forwarded_by_host_count get_udp_flow_throughput_mbps);
 
 use CapacityTest::Graph qw (plot_tput_vs_hops_data_per_numflows plot_fwd_vs_hops_data_per_numflows plot_tput_vs_flows_data_per_numhops plot_fwd_vs_flows_data_per_numhops);
 
@@ -52,15 +52,15 @@ if (!$GEXEC_PREFIX) {
 }
 
 # Link parameters
-my $bw_kbps = 100000;
+my $bw_kbps = 50000;
 my @hop_values = (1, 2, 4, 8, 12);
 my @flow_values = (1, 2, 4, 8, 12, 16, 20);
 my $base_port = 30000;
 my $drop_rate = 0;
-my $delay_ms = 1;
+my $delay_ms = 0;
 my $queue_len = 4000;
 
-my $iperf_runtime = 10;
+my $iperf_runtime = 30;
 my $sleep_delay = 5;
 
 # Filenames
@@ -82,16 +82,35 @@ my $vnrun_cmd = "$MODELNET_PREFIX/bin/vnrun";
 my $vnrunhost_cmd = "$MODELNET_PREFIX/bin/vnrunhost";
 my $gexec_cmd = "$GEXEC_PREFIX/bin/gexec";
 
+# Procedures for getting iperf command
+sub get_iperf_tcp_cmd {
+    (my $srcip, my $port) = @_;
+    my $iperf_tcp_server_cmd = "iperf -s -p $port";
+    return $iperf_tcp_server_cmd;
+}
+
+sub get_iperf_udp_cmd {
+    (my $srcip, my $port) = @_;
+    my $iperf_udp_server_cmd = "sh -c 'LD_PRELOAD=${MODELNET_PREFIX}/lib/libipaddr.so SRCIP=$srcip iperf -s -u -p $port'";
+    return $iperf_udp_server_cmd;
+}
+
 ###############################################################################
 # Entry point (Main method)
 ###############################################################################
 
-if (scalar @ARGV != 2) {
-    print "Usage: ./capacitytest.pl <hosts_file> <emulator_hostname>\n";
+if (scalar @ARGV != 3) {
+    print "Usage: ./capacitytest.pl <hosts_file> <emulator_hostname> <tcp|udp>\n";
     exit 1;
 }
 
-(my $hosts_file_relative_path, my $emulator_name) = @ARGV;
+(my $hosts_file_relative_path, my $emulator_name, my $tcp_or_udp) = @ARGV;
+
+if ($tcp_or_udp ne 'tcp' and $tcp_or_udp ne 'udp') {
+    print "Must specifiy tcp or udp!\n";
+    exit 1;
+}
+
 my $hosts_file = File::Spec->rel2abs($hosts_file_relative_path);
 run_capacity_test($hosts_file, $emulator_name);
 exit 0;
@@ -257,7 +276,18 @@ sub do_capacity_test {
     # For each destination VN, start a TCP Iperf server.
     for my $src (keys %$vn_src_to_dst_map) {
         my $dst = $vn_src_to_dst_map->{$src};
-        my $cmd = "$vnrun_cmd $dst $model_filename iperf -s -p $current_port &";
+        my $dst_ip = $vn_id_to_ip_map->{$dst};
+        my $iperf_cmd;
+        if ($tcp_or_udp eq 'tcp') {
+            $iperf_cmd = get_iperf_tcp_cmd($dst_ip, $current_port);
+        }
+        elsif ($tcp_or_udp eq 'udp') {
+            $iperf_cmd = get_iperf_udp_cmd($dst_ip, $current_port);
+        }
+        else {
+            die "Error: neither TCP nor UDP was specified for Iperf.\n";
+        }
+        my $cmd = "$vnrun_cmd $dst $model_filename $iperf_cmd &";
         $src_to_port_map->{$src} = $current_port;
         $current_port++;
 
@@ -308,7 +338,15 @@ sub do_capacity_test {
     for my $src (keys %$vn_src_to_dst_map) {
         my $dst = $vn_src_to_dst_map->{$src};
         my $filename = "./src_${src}_dst_${dst}_flow";
-        $aggregate_throughput += get_tcp_flow_throughput_mbps($filename);
+        if ($tcp_or_udp eq 'tcp') {
+            $aggregate_throughput += get_tcp_flow_throughput_mbps($filename);
+        }
+        elsif ($tcp_or_udp eq 'udp') {
+            $aggregate_throughput += get_udp_flow_throughput_mbps($filename);
+        }
+        else {
+            die "Neither TCP nor UDP specified for iperf!\n";
+        }
     }
 
     # Return # packets Forwarded and aggregate throughput for run
@@ -337,7 +375,17 @@ sub start_tcp_flow
     print "Starting flow from VN $src_id ($src_ip) to VN $dst_id ($dst_ip) on port $port.\n";
 
     # Assume output directory exists
-    my $cmd = "$vnrun_cmd $src_id $model_filename iperf -c $dst_ip -p $port -fm -t $iperf_runtime > ./src_${src_id}_dst_${dst_id}_flow";
+    my $cmd;
+
+    if ($tcp_or_udp eq 'tcp') {
+        $cmd = "$vnrun_cmd $src_id $model_filename iperf -c $dst_ip -p $port -fm -t $iperf_runtime > ./src_${src_id}_dst_${dst_id}_flow";
+    }
+    elsif ($tcp_or_udp eq 'udp') {
+        $cmd = "$vnrun_cmd $src_id $model_filename iperf -c $dst_ip -p $port -fm -t $iperf_runtime -u -b ${bw_kbps}K  > ./src_${src_id}_dst_${dst_id}_flow";
+    }
+    else {
+        die "Error: neither TCP nor UDP were specified for Iperf.\n";
+    }
     return system($cmd);
 }
 

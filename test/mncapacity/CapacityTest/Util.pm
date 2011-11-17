@@ -6,7 +6,7 @@ use warnings;
 our $VERSION = '1.00';
 use base 'Exporter';
 
-our @EXPORT = qw(get_tcp_flow_throughput_mbps get_ip_packets_forwarded_by_host_count);
+our @EXPORT = qw(get_tcp_flow_throughput_mbps get_udp_flow_throughput_mbps get_ip_packets_forwarded_by_host_count);
 
 # Prefix variables come from environment, otherwise we fallback.
 my $MODELNET_PREFIX = $ENV{'MODELNET_PREFIX'};
@@ -20,6 +20,33 @@ if (!$GEXEC_PREFIX) {
 }
 
 my $gexec_cmd = "$GEXEC_PREFIX/bin/gexec";
+
+# sub get_udp_flow_throughput(filename)
+#
+# Finds UDP flow from file containing output of iperf UDP client run.
+#
+# filename: filename containing output from iperf client
+#
+sub get_udp_flow_throughput_mbps
+{
+    (my $filename) = @_;
+
+    my $throughput_mbps = 0;
+    my $found = 0;
+    open(FH, $filename) or die "Could not open $filename.\n";
+    while (<FH>) {
+        my $line = $_;
+        if ($line =~ m/.*\s+(\d+|\d+\.\d+) Mbits\/sec .+/) {
+            $throughput_mbps = $1;
+            $found = 1;
+            last;
+        }
+    }
+    close(FH);
+    print "Could not find throughput from $filename.\n" unless $found;
+    return $throughput_mbps;
+}
+
 
 # sub get_tcp_flow_throughput(filename)
 #
