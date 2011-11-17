@@ -185,7 +185,10 @@ static void update_bwq(struct hop *hop, unsigned long tick)
  * Emulate link latency hop->delay
  * Insert pkt into calendar queue for time (tailexit + hop->delay)
  *
- * Returns -ENOBUFS if packet dropped, 1 if forwarded, 0 otherwise.
+ * Returns -ENOBUFS if packet dropped, -EREMOTE if forwarded, -EAGAIN
+ * if it needs to be called again (to emulate the hop right after this
+ * one, if the bwdelay is small enough that tailexit == curtick) and
+ * 0 otherwise.
  */
 
 static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
@@ -345,9 +348,9 @@ static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
     /* if packet is ready now, send it on its way */
     if (tailexit == curtick && (*(pkt->path + 1)) == NULL) {
         forward_packet(pkt);
-        return 1; /* Signal that packet was forwarded and must be freed. */
+        return -EREMOTE; /* Signal that packet was forwarded and must be freed. */
     }
-    else {
+    else if (tailexit != curtick) {
         if (needlock)
             spin_lock_bh(&calendar_lock);
         /* put packet on packet_calendar, to be handled by hopclock() */
@@ -355,9 +358,12 @@ static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
             &packet_calendar[(tailexit & SCHEDMASK)].list);
         if (needlock)
             spin_unlock_bh(&calendar_lock);
-    }
 
-    return 0;
+        return 0;
+    }
+    else {
+        return -EAGAIN;
+    }
 }
 
 
@@ -414,9 +420,15 @@ void emulate_nexthop(struct packet *pkt, int needlock)
          * not home, then can free
          */
         MN_FREE_PKT(pkt);
-    } else if (ret == -ENOBUFS || ret == 1) {
+    } 
+    else if (ret == -ENOBUFS || ret == -EREMOTE) {
         /* Packet was dropped or forwarded, so free. */
         MN_FREE_PKT(pkt);
+    }
+    else if (ret == -EAGAIN) {
+        /* bwdelay is so low that packet tailexit 
+         * == curtick so we rehandle another hop. */
+        emulate_nexthop(pkt, needlock);
     }
 
     return;
