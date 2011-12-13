@@ -56,17 +56,27 @@ sub get_udp_flow_throughput_mbps
 #
 sub get_tcp_flow_throughput_mbps
 {
-    (my $filename) = @_;
+    (my $filename, my $tcp_threads) = @_;
 
     my $throughput_mbps = 0;
     my $found = 0;
     open(FH, $filename) or die "Could not open $filename.\n";
     while (<FH>) {
         my $line = $_;
-        if ($line =~ m/.*\s+(\d+|\d+\.\d+) Mbits\/sec/) {
-            $throughput_mbps = $1;
-            $found = 1;
-            last;
+        if ($tcp_threads == 1) {
+            if ($line =~ m/.*\s+(\d+|\d+\.\d+) Mbits\/sec/) {
+                $throughput_mbps = $1;
+                $found = 1;
+                last;
+            }
+        }
+        else {
+            if ($line =~ m/.*\[SUM\].*\s+(\d+|\d+\.\d+) Mbits\/sec/) {
+                $throughput_mbps = $1;
+                $found = 1;
+                last;
+            }
+ 
         }
     }
     close(FH);

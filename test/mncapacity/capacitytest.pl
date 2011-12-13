@@ -57,11 +57,14 @@ my @hop_values = (1, 2, 4, 8, 12);
 my @flow_values = (1, 2, 4, 8, 12, 16, 20);
 my $base_port = 30000;
 my $drop_rate = 0;
-my $delay_ms = 0;
-my $queue_len = 4000;
+my $delay_ms = 10;
+my $queue_len = 200;
 
 my $iperf_runtime = 30;
 my $sleep_delay = 5;
+
+my $nagle_disabled = 1;
+my $tcp_threads = 1;
 
 # Filenames
 my $graph_filename = 'capacity.graph';
@@ -90,8 +93,8 @@ sub get_iperf_tcp_cmd {
 }
 
 sub get_iperf_udp_cmd {
-    (my $srcip, my $port) = @_;
-    my $iperf_udp_server_cmd = "sh -c 'LD_PRELOAD=${MODELNET_PREFIX}/lib/libipaddr.so SRCIP=$srcip iperf -s -u -p $port'";
+    (my $srcip, my $port, my $src_id, my $dst_id) = @_;
+    my $iperf_udp_server_cmd = "sh -c 'LD_PRELOAD=${MODELNET_PREFIX}/lib/libipaddr.so SRCIP=$srcip iperf -s -u -fm -p $port > ./src_${src_id}_dst_${dst_id}_flow'";
     return $iperf_udp_server_cmd;
 }
 
@@ -282,7 +285,7 @@ sub do_capacity_test {
             $iperf_cmd = get_iperf_tcp_cmd($dst_ip, $current_port);
         }
         elsif ($tcp_or_udp eq 'udp') {
-            $iperf_cmd = get_iperf_udp_cmd($dst_ip, $current_port);
+            $iperf_cmd = get_iperf_udp_cmd($dst_ip, $current_port, $src, $dst);
         }
         else {
             die "Error: neither TCP nor UDP was specified for Iperf.\n";
@@ -339,7 +342,7 @@ sub do_capacity_test {
         my $dst = $vn_src_to_dst_map->{$src};
         my $filename = "./src_${src}_dst_${dst}_flow";
         if ($tcp_or_udp eq 'tcp') {
-            $aggregate_throughput += get_tcp_flow_throughput_mbps($filename);
+            $aggregate_throughput += get_tcp_flow_throughput_mbps($filename, $tcp_threads);
         }
         elsif ($tcp_or_udp eq 'udp') {
             $aggregate_throughput += get_udp_flow_throughput_mbps($filename);
@@ -378,10 +381,15 @@ sub start_tcp_flow
     my $cmd;
 
     if ($tcp_or_udp eq 'tcp') {
-        $cmd = "$vnrun_cmd $src_id $model_filename iperf -c $dst_ip -p $port -fm -t $iperf_runtime > ./src_${src_id}_dst_${dst_id}_flow";
+        my $nagle = '';
+        if ($nagle_disabled) {
+            $nagle = '-N';
+        }
+        
+        $cmd = "$vnrun_cmd $src_id $model_filename iperf -c $dst_ip -p $port -fm -t $iperf_runtime -P $tcp_threads $nagle > ./src_${src_id}_dst_${dst_id}_flow";
     }
     elsif ($tcp_or_udp eq 'udp') {
-        $cmd = "$vnrun_cmd $src_id $model_filename iperf -c $dst_ip -p $port -fm -t $iperf_runtime -u -b ${bw_kbps}K  > ./src_${src_id}_dst_${dst_id}_flow";
+        $cmd = "$vnrun_cmd $src_id $model_filename iperf -c $dst_ip -p $port -fm -t $iperf_runtime -u -b ${bw_kbps}K"; # UDP stats collection is from server output
     }
     else {
         die "Error: neither TCP nor UDP were specified for Iperf.\n";
