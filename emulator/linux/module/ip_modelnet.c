@@ -185,10 +185,7 @@ static void update_bwq(struct hop *hop, unsigned long tick)
  * Emulate link latency hop->delay
  * Insert pkt into calendar queue for time (tailexit + hop->delay)
  *
- * Returns -ENOBUFS if packet dropped, -EREMOTE if forwarded, -EAGAIN
- * if it needs to be called again (to emulate the hop right after this
- * one, if the bwdelay is small enough that tailexit == curtick) and
- * 0 otherwise.
+ * Returns -ENOBUFS if packet dropped and 0 otherwise.
  */
 
 static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
@@ -345,25 +342,15 @@ static int emulate_hop(struct packet *pkt, struct hop *hop, int needlock)
 
     spin_unlock_bh(&hop->lock);
 
-    /* if packet is ready now, send it on its way */
-    if (tailexit == curtick && (*(pkt->path + 1)) == NULL) {
-        forward_packet(pkt);
-        return -EREMOTE; /* Signal that packet was forwarded and must be freed. */
-    }
-    else if (tailexit != curtick) {
-        if (needlock)
-            spin_lock_bh(&calendar_lock);
-        /* put packet on packet_calendar, to be handled by hopclock() */
-        list_add_tail(&(pkt->list),
-            &packet_calendar[(tailexit & SCHEDMASK)].list);
-        if (needlock)
-            spin_unlock_bh(&calendar_lock);
+    if (needlock)
+        spin_lock_bh(&calendar_lock);
+    /* put packet on packet_calendar, to be handled by hopclock() */
+    list_add_tail(&(pkt->list),
+        &packet_calendar[(tailexit & SCHEDMASK)].list);
+    if (needlock)
+        spin_unlock_bh(&calendar_lock);
 
-        return 0;
-    }
-    else {
-        return -EAGAIN;
-    }
+    return 0;
 }
 
 
@@ -421,17 +408,10 @@ void emulate_nexthop(struct packet *pkt, int needlock)
          */
         MN_FREE_PKT(pkt);
     } 
-    else if (ret == -ENOBUFS || ret == -EREMOTE) {
+    else if (ret == -ENOBUFS) {
         /* Packet was dropped or forwarded, so free. */
         MN_FREE_PKT(pkt);
     }
-    else if (ret == -EAGAIN) {
-        /* bwdelay is so low that packet tailexit 
-         * == curtick so we rehandle another hop. */
-        emulate_nexthop(pkt, needlock);
-    }
-
-    return;
 }
 
 /*
@@ -505,12 +485,14 @@ static void hopclock(struct work_struct *irrelevant)
     while (time_is_before_jiffies(calendar_tick)) {
 	int slot = calendar_tick& SCHEDMASK;
 
-	list_for_each_safe (pos, q, &(packet_calendar[slot].list)) {
-	    pkt = list_entry(pos, struct packet, list);
-	    list_del(pos);
-	    mn.stats.pkts_queued--;     /* stats */
-	    emulate_nexthop(pkt, 0);
-	}
+        while (!list_empty(&packet_calendar[slot].list)) {
+	    list_for_each_safe (pos, q, &(packet_calendar[slot].list)) {
+	        pkt = list_entry(pos, struct packet, list);
+	        list_del(pos);
+	        mn.stats.pkts_queued--;     /* stats */
+	        emulate_nexthop(pkt, 0);
+	    }
+        }
 	
 	++calendar_tick;
     }
