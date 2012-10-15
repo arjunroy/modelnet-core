@@ -117,7 +117,6 @@ free_path(void)
 void
 uninit_paths(void)
 {
-  unsigned long flags;
   int i;
 
   free_path();
@@ -209,7 +208,6 @@ proc_nodecount(ctl_table *table, int write,
 	       void __user *buffer, size_t *lenp, loff_t *ppos)
 {
   int i;
-  unsigned long flags;
   int             oldcount = nodecount;
   
   /* Use linux's procedure for copying integers from user space
@@ -293,7 +291,6 @@ proc_hophandle(ctl_table *table, int write,
 {
   void __user *userHopsPtr;
   int error, i;
-  unsigned long flags;
   
   struct sysctl_hoptable tab;
   struct sysctl_hop *hops;
@@ -537,7 +534,6 @@ proc_pathentry(ctl_table *table, int write,
 	       void __user *buffer, size_t *lenp, loff_t *ppos)
 {
   int             error, i;
-  unsigned long int flags;
   struct sysctl_pathentry entry;
   int            *hops;
   void __user *userHopsPtr;

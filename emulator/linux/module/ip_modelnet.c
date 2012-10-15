@@ -125,6 +125,7 @@ unsigned long long get_hr_time( void )
  */
 static void forward_packet(struct packet *pkt)
 {
+    struct  iphdr *ip;
     if (pkt->skb == NULL) 
     {
         /*
@@ -135,7 +136,6 @@ static void forward_packet(struct packet *pkt)
         return;
     }
     
-    struct  iphdr *ip;
     ip = ip_hdr(pkt->skb);
     ip_rcv_finish_hook(pkt->skb);
 
